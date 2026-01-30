@@ -134,6 +134,30 @@
                                 <p class="font-mono text-green-300">{{ formatPrice(currentData.low) }}</p>
                             </div>
                         </div>
+
+                        <!-- 新增：24小时波动摘要 -->
+                        <div v-if="currentData.volatility" class="mt-4 pt-4 border-t border-white/10 grid grid-cols-2 gap-4 text-sm text-gray-200 opacity-90">
+                            <div class="col-span-2 flex justify-between items-center mb-1">
+                                <span class="text-xs font-bold text-yellow-400/80">24H 波动摘要</span>
+                                <span class="text-[10px] opacity-40">基于 {{ currentData.count }} 样本</span>
+                            </div>
+                            <div>
+                                <p class="text-xs opacity-60">24H 最高</p>
+                                <p class="font-mono">{{ formatPrice(currentData.high_24h) }}</p>
+                            </div>
+                            <div>
+                                <p class="text-xs opacity-60">24H 最低</p>
+                                <p class="font-mono">{{ formatPrice(currentData.low_24h) }}</p>
+                            </div>
+                            <div>
+                                <p class="text-xs opacity-60">24H 振幅</p>
+                                <p class="font-mono text-yellow-300">{{ currentData.volatility }}</p>
+                            </div>
+                            <div>
+                                <p class="text-xs opacity-60">24H 均价</p>
+                                <p class="font-mono">{{ formatPrice(currentData.avg_24h) }}</p>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- 买入价格设置 -->
@@ -310,7 +334,10 @@
                             <h3 class="text-lg font-semibold">价格记录</h3>
                             <div class="flex gap-2">
                                 <button @click="exportCSV" class="text-blue-400 hover:text-blue-300 text-sm px-3 py-1 hover:bg-blue-900/20 rounded transition">
-                                    导出 CSV
+                                    导出记录
+                                </button>
+                                <button @click="exportHistoryCSV" class="text-yellow-400 hover:text-yellow-300 text-sm px-3 py-1 hover:bg-yellow-900/20 rounded transition">
+                                    导出 24H 历史
                                 </button>
                                 <button @click="clearRecords" class="text-red-400 hover:text-red-300 text-sm px-3 py-1 hover:bg-red-900/20 rounded transition">
                                     清空记录
@@ -822,6 +849,29 @@
                     link.click();
                     document.body.removeChild(link);
                 },
+                exportHistoryCSV() {
+                    if (this.historyData.length === 0) return;
+                    
+                    let csvContent = "\ufeff"; // BOM
+                    csvContent += "时间,价格(元/克)\n";
+                    
+                    // 按照时间降序排列，方便查看
+                    const sortedHistory = [...this.historyData].sort((a, b) => b.timestamp - a.timestamp);
+                    
+                    sortedHistory.forEach(h => {
+                        const timeStr = new Date(h.timestamp * 1000).toLocaleString();
+                        csvContent += `${timeStr},${h.price}\n`;
+                    });
+                    
+                    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement("a");
+                    link.setAttribute("href", url);
+                    link.setAttribute("download", `gold_24h_history_${new Date().toISOString().split('T')[0]}.csv`);
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                },
                 initChart() {
 
                     if (this.chartInstance) return;
@@ -863,16 +913,17 @@
                                 }]
                             },
                             options: {
-                                responsive: true,
+                                 responsive: true,
                                 maintainAspectRatio: false,
                                 layout: {
                                     padding: {
                                         top: 30,    // 增加顶部边距，防止最高价标签被切断
                                         bottom: 20, // 增加底部边距，防止最低价标签重叠
                                         left: 5,
-                                        right: 110  // 进一步增加右侧边距，确保长价格标签不被切断
+                                        right: window.innerWidth < 640 ? 60 : 110  // 移动端动态减少右侧边距
                                     }
                                 },
+
                                 animation: {
                                     duration: 1000,
                                     easing: 'easeOutQuart'
@@ -922,8 +973,10 @@
                             plugins: [{
                                 id: 'highLowMarkers',
                                 afterDatasetsDraw(chart) {
-                                    const { ctx, scales: { y }, chartArea: { left, right } } = chart;
+                                     const { ctx, scales: { y }, chartArea: { left, right } } = chart;
+                                    const isMobile = window.innerWidth < 640;
                                     const dataset = chart.data.datasets[0].data;
+
                                     const validData = dataset.filter(d => d.y !== null).map(d => d.y);
                                     if (validData.length < 2) return;
  
@@ -944,14 +997,15 @@
                                         ctx.stroke();
                                         ctx.setLineDash([]);
                                         
-                                        // 设置标签文本
-                                        const text = ` ${label}: ${val.toFixed(2)} `;
-                                        ctx.font = 'bold 13px monospace';
+                                         // 设置标签文本
+                                        const text = isMobile ? `${val.toFixed(1)}` : ` ${label}: ${val.toFixed(2)} `;
+                                        ctx.font = isMobile ? 'bold 10px monospace' : 'bold 13px monospace';
                                         const textWidth = ctx.measureText(text).width;
-                                        const textHeight = 22;
+                                        const textHeight = isMobile ? 16 : 22;
                                         
                                         // 智能避让逻辑：如果离顶部太近，标签向下显示
-                                        const labelY = yPos < 30 ? yPos + 2 : yPos - 11;
+                                        const labelY = yPos < 30 ? yPos + 2 : yPos - (isMobile ? 8 : 11);
+
                                         // 将标签放置在右边距区域，离图表边缘 5px
                                         const labelX = right + 5; 
                                         

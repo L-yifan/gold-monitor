@@ -443,6 +443,27 @@ def calculate_current_profit(buy_price, current_price, fee_rate=0.005):
     return round(profit_rate, 2)
 
 
+def get_24h_summary():
+    """计算过去 24 小时的统计数据"""
+    with lock:
+        if not price_history:
+            return None
+        
+        prices = [p['price'] for p in price_history]
+        high = max(prices)
+        low = min(prices)
+        avg = sum(prices) / len(prices)
+        volatility = high - low
+        
+        return {
+            "high_24h": round(high, 2),
+            "low_24h": round(low, 2),
+            "avg_24h": round(avg, 2),
+            "volatility": round(volatility, 2),
+            "count": len(prices)
+        }
+
+
 # ==================== 后台抓取线程 ====================
 def background_fetch_loop():
     """后台持续抓取金价线程，确保即使网页关闭也能记录数据"""
@@ -479,18 +500,20 @@ def get_price():
     """获取当前金价 (改为从缓存获取，不再实时去抓取，提高响应速度)"""
     with lock:
         if price_history:
-            latest = price_history[-1]
+            latest = price_history[-1].copy() # 复制一份，避免直接修改缓存
             # 如果缓存数据太老（超过 30 秒），说明后台可能挂了或未运行，尝试实时抓一次
             if time.time() - latest["timestamp"] > 30:
                 data = fetch_gold_price()
                 if data:
                     price_history.append(data)
                     save_data()
-                    return jsonify({"success": True, "data": data})
+                    latest = data
             
-            # 正常情况下直接返回最后一条历史数据
-            # 注意：这里需要补全最高价最低价等全量信息，后台线程存储的是精简版
-            # 为了简单起见，这里直接返回最新的历史记录
+            # 注入 24 小时摘要信息
+            summary = get_24h_summary()
+            if summary:
+                latest.update(summary)
+                
             return jsonify({"success": True, "data": latest})
         else:
             # 没历史记录时去抓一次
