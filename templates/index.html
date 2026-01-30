@@ -542,6 +542,12 @@
                 }
             },
             methods: {
+                handleResize() {
+                    if (this.chartInstance) {
+                        this.chartInstance.options.layout.padding.right = window.innerWidth < 640 ? 60 : 110;
+                        this.chartInstance.update('none');
+                    }
+                },
                 formatPrice(val) {
                     return val ? Number(val).toFixed(2) : '--';
                 },
@@ -1074,9 +1080,17 @@
                 
                 // 定时刷新
                 this.timer = setInterval(this.fetchPrice, 5000);
+
+                // 响应式监听
+                window.addEventListener('resize', this.handleResize);
             },
             beforeUnmount() {
                 if (this.timer) clearInterval(this.timer);
+                window.removeEventListener('resize', this.handleResize);
+                if (this.chartInstance) {
+                    this.chartInstance.destroy();
+                    this.chartInstance = null;
+                }
             }
         }).mount('#app');
     </script>
