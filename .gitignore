@@ -38,4 +38,5 @@ yolotrain/
 
 # Project specific
 *.log
+data.json
 manual_records.json

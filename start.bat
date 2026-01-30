@@ -1,22 +1,24 @@
 @echo off
+set "ENV_PYTHON=D:\anaconda3\envs\yolotrain\python.exe"
+set "APP_PATH=D:\programdata\code\test\gold-monitor\app.py"
+
 echo ================================================
-echo   Gold Price Monitor - Au99.99
-echo   Data Source: Shanghai Gold Exchange
-echo ================================================
-echo.
-
-call D:\anaconda3\Scripts\activate.bat
-call conda activate yolotrain
-
-echo Checking dependencies...
-pip install flask requests -q
-
-echo.
-echo Starting server...
-echo Press Ctrl+C to stop
+echo   Gold Price Monitor - Au99.99 - Fast Launch
 echo ================================================
 
-start "" cmd /c "timeout /t 2 >nul && start http://localhost:5000"
+:: Start browser in background after 1s delay
+start /b "" cmd /c "timeout /t 1 >nul && start http://localhost:5000"
 
-python -u "D:\programdata\code\test\gold-monitor\app.py"
-pause
+:: Check Python and start app
+if exist "%ENV_PYTHON%" (
+    "%ENV_PYTHON%" -u "%APP_PATH%"
+) else (
+    echo [ERROR] Python environment not found: %ENV_PYTHON%
+    pause
+)
+
+if %ERRORLEVEL% neq 0 (
+    echo.
+    echo [ERROR] Application exited with error.
+    pause
+)

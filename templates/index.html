@@ -59,16 +59,32 @@
         <!-- 顶部标题栏 -->
         <header class="fixed top-0 left-0 right-0 z-50 bg-gray-800/95 backdrop-blur-md border-b border-gray-700 py-4 px-6 shadow-md">
             <div class="max-w-7xl mx-auto flex justify-between items-center">
-                <div>
-                    <h1 class="text-2xl font-bold text-yellow-400">Au99.99 实时监控</h1>
-                    <p class="text-gray-400 text-sm flex items-center gap-2">
-                        <span>数据来源：{{ currentData.source || '上海黄金交易所' }}</span>
-                        <span v-if="currentData.source === '新浪财经'" class="text-xs bg-red-900/50 text-red-300 px-1 rounded border border-red-800">Backup</span>
+                <div class="flex-1">
+                    <h1 class="text-2xl font-bold text-yellow-400 hidden sm:block">Au99.99 实时监控</h1>
+                    <h1 class="text-lg font-bold text-yellow-400 sm:hidden">Au99.99</h1>
+                    <p class="text-gray-400 text-xs flex items-center gap-2">
+                        <span>{{ currentData.source || 'SGE' }}</span>
                     </p>
                 </div>
-                <div class="text-right">
-                    <p class="text-gray-400 text-sm">更新时间</p>
-                    <p class="text-lg font-mono">{{ currentData.time_str || '--:--:--' }}</p>
+
+                <!-- 实时价格显示 (下滑时依然可见) -->
+                <div class="flex-1 flex justify-center items-center">
+                    <div class="bg-gray-900/50 px-4 py-1 rounded-full border border-gray-700 flex items-center gap-3"
+                         :class="{'pop-effect': priceAnimating}">
+                        <span class="text-2xl font-bold font-mono transition-colors duration-300"
+                              :class="isPriceUp ? 'text-red-500' : 'text-green-500'">
+                            {{ formatPrice(currentData.price) }}
+                        </span>
+                        <span class="text-sm font-mono px-2 py-0.5 rounded bg-gray-800"
+                              :class="isPriceUp ? 'text-red-400' : 'text-green-400'">
+                            {{ currentData.change >= 0 ? '+' : '' }}{{ currentData.change }}
+                        </span>
+                    </div>
+                </div>
+
+                <div class="flex-1 text-right">
+                    <p class="text-gray-400 text-xs hidden sm:block">更新时间</p>
+                    <p class="text-sm sm:text-lg font-mono">{{ currentData.time_str || '--:--:--' }}</p>
                 </div>
             </div>
         </header>
@@ -79,9 +95,11 @@
                 <!-- 左侧：实时价格面板 -->
                 <div class="lg:col-span-1 space-y-6">
                     
-                    <!-- 当前价格卡片 -->
-                    <div class="rounded-2xl p-6 transition-all duration-500"
-                        :class="[isPriceUp ? 'bg-up pulse-up' : 'bg-down pulse-down', {'pop-effect': priceAnimating}]">
+                    <!-- 粘性价格容器 (仅在桌面端有效，因为移动端已由 Header 覆盖) -->
+                    <div class="lg:sticky lg:top-28 space-y-6">
+                        <!-- 当前价格卡片 -->
+                        <div class="rounded-2xl p-6 transition-all duration-500"
+                            :class="[isPriceUp ? 'bg-up pulse-up' : 'bg-down pulse-down', {'pop-effect': priceAnimating}]">
                         <p class="text-gray-200 mb-2 opacity-80">当前金价 (元/克)</p>
                         <div class="flex items-baseline gap-3">
                             <span class="text-5xl font-bold font-mono transition-transform duration-300" 
@@ -123,7 +141,7 @@
                         <h3 class="text-lg font-semibold mb-4 text-yellow-400">我的买入成本</h3>
                         <div class="flex gap-2">
                             <input type="number" v-model.number="buyPrice"
-                                @focus="handleInputFocus" 
+                                @focus="handleInputFocus($event)" 
                                 @blur="handleInputBlur"
                                 class="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-xl font-mono focus:outline-none focus:border-yellow-500 transition-colors"
                                 placeholder="输入买入价格" step="0.01">
@@ -136,52 +154,55 @@
                         <p class="text-gray-500 text-sm mt-2 flex justify-between">
                             <span>* 手续费率: 0.5%</span>
                             <span v-if="buyPrice > 0" class="text-yellow-500/80">已设成本: {{ buyPrice.toFixed(2) }}</span>
+                            <span v-else class="text-gray-600">未设置</span>
                         </p>
                     </div>
 
                     <!-- 当前盈亏状态 -->
-                    <transition name="fade">
-                        <div v-if="buyPrice > 0" class="bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-700">
-                            <h3 class="text-lg font-semibold mb-4">当前盈亏状态</h3>
-                            <div class="text-center py-4">
-                                <p class="text-gray-400 text-sm">若现在卖出 (扣除手续费后)</p>
-                                <p class="text-4xl font-bold font-mono my-2" 
-                                   :class="currentProfit.rate >= 0 ? 'text-red-500' : 'text-green-500'">
-                                   {{ currentProfit.rate >= 0 ? '+' : '' }}{{ currentProfit.rate }}%
-                                </p>
-                                <p class="text-gray-500 text-sm font-mono">
-                                    每克盈亏: {{ currentProfit.amount >= 0 ? '+' : '' }}{{ currentProfit.amount }} 元
-                                </p>
+                    <div class="bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-700 transition-opacity duration-300"
+                         :class="{'opacity-40 grayscale': !(buyPrice > 0)}">
+                        <h3 class="text-lg font-semibold mb-4">当前盈亏状态</h3>
+                        <div class="text-center py-4">
+                            <p class="text-gray-400 text-sm">若现在卖出 (扣除手续费后)</p>
+                            <p class="text-4xl font-bold font-mono my-2" 
+                               :class="currentProfit.rate >= 0 ? 'text-red-500' : 'text-green-500'">
+                               {{ buyPrice > 0 ? (currentProfit.rate >= 0 ? '+' : '') + currentProfit.rate + '%' : '--%' }}
+                            </p>
+                            <p class="text-gray-500 text-sm font-mono">
+                                每克盈亏: {{ buyPrice > 0 ? (currentProfit.amount >= 0 ? '+' : '') + currentProfit.amount + ' 元' : '-- 元' }}
+                            </p>
+                        </div>
+                        <!-- 盈利进度条 -->
+                        <div class="mt-4 relative pt-6">
+                            <div class="flex justify-between text-xs text-gray-500 mb-1 absolute top-0 w-full">
+                                <span style="left: 0%">-10%</span>
+                                <span style="left: 33.3%">0%</span>
+                                <span style="right: 0">+20%</span>
                             </div>
-                            <!-- 盈利进度条 -->
-                            <div class="mt-4 relative pt-6">
-                                <div class="flex justify-between text-xs text-gray-500 mb-1 absolute top-0 w-full">
-                                    <span style="left: 0%">-10%</span>
-                                    <span style="left: 33.3%">0%</span>
-                                    <span style="right: 0">+20%</span>
-                                </div>
-                                <div class="h-3 bg-gray-700 rounded-full overflow-hidden relative">
-                                    <!-- 0点参考线 -->
-                                    <div class="absolute h-full w-0.5 bg-gray-600 left-1/3 z-10"></div>
-                                    <div class="h-full transition-all duration-500 relative"
-                                         :style="profitBarStyle"
-                                         :class="currentProfit.rate >= 0 ? 'bg-red-500' : 'bg-green-500'">
-                                    </div>
+                            <div class="h-3 bg-gray-700 rounded-full overflow-hidden relative">
+                                <!-- 0点参考线 -->
+                                <div class="absolute h-full w-0.5 bg-gray-600 left-1/3 z-10"></div>
+                                <div class="h-full transition-all duration-500 relative"
+                                     :style="buyPrice > 0 ? profitBarStyle : {width: '0%', left: '33.3%'}"
+                                     :class="currentProfit.rate >= 0 ? 'bg-red-500' : 'bg-green-500'">
                                 </div>
                             </div>
                         </div>
-                    </transition>
+                    </div>
 
                     <!-- 记录按钮 -->
-                    <button v-if="buyPrice > 0" @click="recordPrice" 
-                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl transition shadow-lg hover:shadow-blue-900/50 flex justify-center items-center gap-2">
+                    <button @click="recordPrice" 
+                        :disabled="!(buyPrice > 0)"
+                        class="w-full font-bold py-4 rounded-xl transition shadow-lg flex justify-center items-center gap-2"
+                        :class="buyPrice > 0 ? 'bg-blue-600 hover:bg-blue-700 text-white hover:shadow-blue-900/50' : 'bg-gray-700 text-gray-500 cursor-not-allowed'">
                         <span>记录当前价格</span>
                         <span v-if="isRecording" class="animate-spin">⏳</span>
                     </button>
                 </div>
+            </div>
 
-                <!-- 右侧：图表和目标 -->
-                <div class="lg:col-span-2 space-y-6">
+            <!-- 右侧：图表和目标 -->
+            <div class="lg:col-span-2 space-y-6">
                     
                     <!-- 价格走势图 -->
                     <div class="bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-700">
@@ -197,22 +218,55 @@
                         </div>
                     </div>
 
+                    <!-- 价格预警设置 -->
+                    <div class="bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-700">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-semibold text-yellow-400">价格预警 (浏览器通知)</h3>
+                            <div class="flex items-center gap-3">
+                                <button @click="resetAlertsToDefault" class="text-[10px] text-gray-500 hover:text-yellow-500 border border-gray-700 px-2 py-1 rounded transition">
+                                    重置为 ±3%
+                                </button>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" v-model="settings.enabled" @change="saveSettings" class="sr-only peer">
+                                    <div class="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-yellow-500"></div>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="text-xs text-gray-500 block mb-1">金价高于 (元/克)</label>
+                                <input type="number" v-model.number="settings.high" @blur="saveSettings"
+                                    class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-yellow-500"
+                                    placeholder="0.00" step="0.01">
+                            </div>
+                            <div>
+                                <label class="text-xs text-gray-500 block mb-1">金价低于 (元/克)</label>
+                                <input type="number" v-model.number="settings.low" @blur="saveSettings"
+                                    class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-yellow-500"
+                                    placeholder="0.00" step="0.01">
+                            </div>
+                        </div>
+                        <p class="text-[10px] text-gray-500 mt-3 italic">* 开启后请确保允许浏览器通知。触发后将进入 5 分钟冷却期。</p>
+                    </div>
+
                     <!-- 多目标盈利计算表 -->
-                    <transition name="fade">
-                        <div v-if="buyPrice > 0" class="bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-700">
-                            <h3 class="text-lg font-semibold mb-4 text-yellow-400">目标卖出价格</h3>
-                            <div class="overflow-x-auto">
-                                <table class="w-full">
-                                    <thead>
-                                        <tr class="text-gray-400 text-sm border-b border-gray-700">
-                                            <th class="text-left py-3">目标盈利</th>
-                                            <th class="text-right py-3">需涨至</th>
-                                            <th class="text-right py-3">实际涨幅</th>
-                                            <th class="text-right py-3">距目标</th>
-                                            <th class="text-right py-3">状态</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
+                    <div class="bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-700 transition-opacity duration-300"
+                         :class="{'opacity-40 grayscale': !(buyPrice > 0)}">
+                        <h3 class="text-lg font-semibold mb-4 text-yellow-400">目标卖出价格</h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead>
+                                    <tr class="text-gray-400 text-sm border-b border-gray-700">
+                                        <th class="text-left py-3">目标盈利</th>
+                                        <th class="text-right py-3">每克盈利</th>
+                                        <th class="text-right py-3">需涨至</th>
+                                        <th class="text-right py-3">实际涨幅</th>
+                                        <th class="text-right py-3">距目标</th>
+                                        <th class="text-right py-3">状态</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <template v-if="buyPrice > 0">
                                         <tr v-for="target in targetTable" :key="target.percent" 
                                             class="border-b border-gray-700/50 hover:bg-gray-700/30 transition-colors"
                                             :class="{'bg-red-900/20': target.reached}">
@@ -220,6 +274,9 @@
                                                 <span class="font-bold" :class="target.reached ? 'text-red-400' : 'text-yellow-400'">
                                                     +{{ target.percent }}%
                                                 </span>
+                                            </td>
+                                            <td class="text-right py-4 font-mono text-blue-400">
+                                                {{ target.profitAmount }} 元
                                             </td>
                                             <td class="text-right py-4 font-mono text-lg">{{ target.sellPrice }}</td>
                                             <td class="text-right py-4 text-gray-400 font-mono">+{{ target.requiredGain }}%</td>
@@ -236,19 +293,29 @@
                                                 </span>
                                             </td>
                                         </tr>
-                                    </tbody>
-                                </table>
-                            </div>
+                                    </template>
+                                    <tr v-else>
+                                        <td colspan="5" class="py-12 text-center text-gray-500 italic">
+                                            请输入买入成本以计算目标
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
-                    </transition>
+                    </div>
 
                     <!-- 历史记录 -->
                     <div class="bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-700">
                         <div class="flex justify-between items-center mb-4">
                             <h3 class="text-lg font-semibold">价格记录</h3>
-                            <button @click="clearRecords" class="text-red-400 hover:text-red-300 text-sm px-3 py-1 hover:bg-red-900/20 rounded transition">
-                                清空记录
-                            </button>
+                            <div class="flex gap-2">
+                                <button @click="exportCSV" class="text-blue-400 hover:text-blue-300 text-sm px-3 py-1 hover:bg-blue-900/20 rounded transition">
+                                    导出 CSV
+                                </button>
+                                <button @click="clearRecords" class="text-red-400 hover:text-red-300 text-sm px-3 py-1 hover:bg-red-900/20 rounded transition">
+                                    清空记录
+                                </button>
+                            </div>
                         </div>
                         <div class="space-y-2 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
                             <div v-if="records.length === 0" class="text-gray-500 text-center py-8 bg-gray-700/20 rounded-lg">
@@ -260,9 +327,6 @@
                                     <div>
                                         <span class="font-mono text-lg text-yellow-100">{{ formatPrice(record.price) }}</span>
                                         <span class="text-gray-500 text-sm ml-2 font-mono">{{ record.time_str }}</span>
-                                        <span v-if="record.note" class="text-gray-400 text-sm ml-2 bg-gray-600/50 px-2 py-0.5 rounded">
-                                            {{ record.note }}
-                                        </span>
                                     </div>
                                     <div class="text-right">
                                         <span class="font-mono font-bold" 
@@ -357,6 +421,13 @@
                     tempBuyPrice: null, // 用于输入框获取焦点时暂存数据
                     priceAnimating: false, // 控制价格跳动动画
                     priceAnimTimer: null, // 动画定时器引用
+                    // 预警设置
+                    settings: {
+                        high: 0,
+                        low: 0,
+                        enabled: false
+                    },
+                    lastNotifiedTime: 0, // 上次通知时间
                     // 模态框状态
                     modal: {
                         visible: false,
@@ -421,6 +492,7 @@
                     return targets.map(percent => {
                         // 目标卖出价 = 买入价 * (1 + 利润率) / (1 - 手续费)
                         const sellPrice = this.buyPrice * (1 + percent / 100) / (1 - feeRate);
+                        const profitAmount = (this.buyPrice * percent / 100).toFixed(2);
                         const requiredGain = ((sellPrice - this.buyPrice) / this.buyPrice * 100);
                         const reached = this.currentData.price >= sellPrice;
                         // 计算进度 0-100%
@@ -431,6 +503,7 @@
                         return {
                             percent,
                             sellPrice: sellPrice.toFixed(2),
+                            profitAmount: profitAmount,
                             requiredGain: requiredGain.toFixed(2),
                             reached,
                             progress: progress.toFixed(1)
@@ -445,17 +518,66 @@
                 formatPrice(val) {
                     return val ? Number(val).toFixed(2) : '--';
                 },
-                handleInputFocus() {
-                    // 备份当前值
-                    this.tempBuyPrice = this.buyPrice;
-                    // 清空输入框以便输入
-                    this.buyPrice = null;
+                processDataForChart(rawData) {
+                    if (!rawData || rawData.length === 0) return [];
+                    
+                    const now = Date.now() / 1000;
+                    const window30min = 30 * 60;
+                    const bucketSize = 5 * 60; // 5分钟一桶
+                    const maxGap = 10 * 60; // 10分钟没有数据视为断档
+                    
+                    let recentData = [];
+                    let buckets = {};
+
+                    // 按时间排序确保逻辑正确
+                    const sortedData = [...rawData].sort((a, b) => a.timestamp - b.timestamp);
+
+                    sortedData.forEach(item => {
+                        const age = now - item.timestamp;
+                        if (age <= window30min) {
+                            recentData.push(item);
+                        } else {
+                            const bucketKey = Math.floor(item.timestamp / bucketSize);
+                            if (!buckets[bucketKey]) {
+                                buckets[bucketKey] = { min: item, max: item };
+                            } else {
+                                if (item.price < buckets[bucketKey].min.price) buckets[bucketKey].min = item;
+                                if (item.price > buckets[bucketKey].max.price) buckets[bucketKey].max = item;
+                            }
+                        }
+                    });
+
+                    let bucketList = Object.values(buckets).flatMap(b => {
+                        if (b.min.timestamp === b.max.timestamp) return [b.min];
+                        return b.min.timestamp < b.max.timestamp ? [b.min, b.max] : [b.max, b.min];
+                    });
+
+                    // 合并并排序
+                    let mergedData = [...bucketList, ...recentData].sort((a, b) => a.timestamp - b.timestamp);
+                    
+                    // 插入断档标记 (null) 以实现连线断开
+                    let finalData = [];
+                    for (let i = 0; i < mergedData.length; i++) {
+                        if (i > 0) {
+                            const gap = mergedData[i].timestamp - mergedData[i-1].timestamp;
+                            if (gap > maxGap) {
+                                // 插入一个 null 点，Chart.js 会自动断开线
+                                finalData.push({ x: (mergedData[i-1].timestamp + 1), y: null });
+                            }
+                        }
+                        finalData.push({ x: mergedData[i].timestamp, y: mergedData[i].price });
+                    }
+                    
+                    return finalData;
+                },
+                handleInputFocus(event) {
+                    // 不再清空 buyPrice，而是全选文字方便修改
+                    if (event && event.target) {
+                        event.target.select();
+                    }
                 },
                 handleInputBlur() {
-                    // 如果用户留空离开了，恢复原值
-                    if (this.buyPrice === null || this.buyPrice === '') {
-                        this.buyPrice = this.tempBuyPrice;
-                    }
+                    // 失去焦点时，如果为空则保持为空，等待用户下次输入或点击重置
                 },
                 resetToCurrent() {
                     if (this.currentData.price > 0) {
@@ -471,9 +593,20 @@
                             this.isConnected = true;
                             this.currentData = data.data;
                             
+                            // 检查预警
+                            this.checkAlerts(data.data.price);
+
                             // 首次初始化买入价
                             if (!this.hasInitializedBuyPrice && data.data.price > 0) {
                                 this.buyPrice = data.data.price;
+                                
+                                // 自动初始化预警值为 +-3% (仅当尚未设置过时)
+                                if (this.settings.high === 0 && this.settings.low === 0) {
+                                    this.settings.high = parseFloat((data.data.price * 1.03).toFixed(2));
+                                    this.settings.low = parseFloat((data.data.price * 0.97).toFixed(2));
+                                    this.saveSettings();
+                                }
+                                
                                 this.hasInitializedBuyPrice = true;
                             }
 
@@ -521,6 +654,65 @@
                         const data = await res.json();
                         if (data.success) this.records = data.data;
                     } catch (e) { console.error(e); }
+                },
+                async fetchSettings() {
+                    try {
+                        const res = await fetch('/api/settings');
+                        const data = await res.json();
+                        if (data.success) this.settings = data.settings;
+                    } catch (e) { console.error(e); }
+                },
+                resetAlertsToDefault() {
+                    if (this.currentData.price > 0) {
+                        this.settings.high = parseFloat((this.currentData.price * 1.03).toFixed(2));
+                        this.settings.low = parseFloat((this.currentData.price * 0.97).toFixed(2));
+                        this.saveSettings();
+                    }
+                },
+                async saveSettings() {
+                    if (this.settings.enabled && Notification.permission !== "granted") {
+                        const permission = await Notification.requestPermission();
+                        if (permission !== "granted") {
+                            this.settings.enabled = false;
+                            alert("需要浏览器通知权限才能开启预警，喵！");
+                        }
+                    }
+
+                    try {
+                        await fetch('/api/settings', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(this.settings)
+                        });
+                    } catch (e) { console.error(e); }
+                },
+                checkAlerts(currentPrice) {
+                    if (!this.settings.enabled || currentPrice <= 0) return;
+
+                    const now = Date.now();
+                    const cooldown = 5 * 60 * 1000; // 5分钟冷却
+
+                    if (now - this.lastNotifiedTime < cooldown) return;
+
+                    let msg = "";
+                    if (this.settings.high > 0 && currentPrice >= this.settings.high) {
+                        msg = `📈 金价已涨至 ${currentPrice}，超过预警线 ${this.settings.high}`;
+                    } else if (this.settings.low > 0 && currentPrice <= this.settings.low) {
+                        msg = `📉 金价已跌至 ${currentPrice}，低于预警线 ${this.settings.low}`;
+                    }
+
+                    if (msg) {
+                        this.sendNotification("金价提醒 (Au99.99)", msg);
+                        this.lastNotifiedTime = now;
+                    }
+                },
+                sendNotification(title, body) {
+                    if (Notification.permission === "granted") {
+                        new Notification(title, {
+                            body: body,
+                            icon: "https://p3.itc.cn/images01/20210712/f6d76a7f34034442a8656157834241e3.png" // 金牌图标占位
+                        });
+                    }
                 },
                 
                 // 通用 Modal 方法: Prompt
@@ -574,17 +766,13 @@
                 async recordPrice() {
                     if (this.isRecording) return;
                     
-                    // 使用自定义 Modal 替代原生 prompt
-                    const note = await this.openPrompt('记录当前价格', '添加备注 (可选)');
-                    if (note === null) return; // 用户取消
-
                     this.isRecording = true;
                     
                     const payload = {
                         price: this.currentData.price,
                         buy_price: this.buyPrice,
                         profit: this.currentProfit.rate,
-                        note
+                        note: '' // 备注功能已取消
                     };
 
                     try {
@@ -608,14 +796,34 @@
                         '清空记录'
                     );
                     
-                    if(!confirmed) return;
+                        if(!confirmed) return;
                     
                     try {
                         await fetch('/api/records/clear', { method: 'POST' });
                         this.records = [];
                     } catch(e) { console.error(e); }
                 },
+                exportCSV() {
+                    if (this.records.length === 0) return;
+                    
+                    let csvContent = "\ufeff"; // BOM
+                    csvContent += "时间,价格(元/克),买入成本,盈亏率(%)\n";
+                    
+                    this.records.forEach(r => {
+                        csvContent += `${r.time_str},${r.price},${r.buy_price},${r.profit}\n`;
+                    });
+                    
+                    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement("a");
+                    link.setAttribute("href", url);
+                    link.setAttribute("download", `gold_price_records_${new Date().toISOString().split('T')[0]}.csv`);
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                },
                 initChart() {
+
                     if (this.chartInstance) return;
                     
                     // 使用 nextTick 确保 DOM 已渲染
@@ -624,63 +832,190 @@
                         if (!canvas) return;
                         
                         const ctx = canvas.getContext('2d');
-                        const labels = this.historyData.map(d => d.time_str);
-                        const data = this.historyData.map(d => d.price);
+                        const chartData = this.processDataForChart(this.historyData);
 
                         this.chartInstance = new Chart(ctx, {
                             type: 'line',
                             data: {
-                                labels: labels,
                                 datasets: [{
                                     label: 'Au99.99 价格',
-                                    data: data,
+                                    data: chartData,
                                     borderColor: '#facc15',
-                                    backgroundColor: 'rgba(250, 204, 21, 0.1)',
                                     borderWidth: 2,
                                     fill: true,
+                                    // 渐变填充
+                                    backgroundColor: (context) => {
+                                        const chart = context.chart;
+                                        const {ctx, chartArea} = chart;
+                                        if (!chartArea) return null;
+                                        const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+                                        gradient.addColorStop(0, 'rgba(250, 204, 21, 0.4)');
+                                        gradient.addColorStop(1, 'rgba(250, 204, 21, 0)');
+                                        return gradient;
+                                    },
                                     tension: 0.4,
+                                    spanGaps: false, // 强制断档
                                     pointRadius: 0,
-                                    pointHoverRadius: 4
+                                    pointHoverRadius: 4,
+                                    pointBackgroundColor: '#facc15',
+                                    pointBorderColor: '#fff',
+                                    pointBorderWidth: 2
                                 }]
                             },
                             options: {
                                 responsive: true,
                                 maintainAspectRatio: false,
-                                animation: false,
-                                plugins: { legend: { display: false } },
-                                scales: {
-                                    x: { grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#9ca3af', maxTicksLimit: 10 } },
-                                    y: { grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#9ca3af' } }
+                                layout: {
+                                    padding: {
+                                        top: 30,    // 增加顶部边距，防止最高价标签被切断
+                                        bottom: 20, // 增加底部边距，防止最低价标签重叠
+                                        left: 5,
+                                        right: 110  // 进一步增加右侧边距，确保长价格标签不被切断
+                                    }
                                 },
-                                interaction: { intersect: false, mode: 'index' }
-                            }
+                                animation: {
+                                    duration: 1000,
+                                    easing: 'easeOutQuart'
+                                },
+                                plugins: { 
+                                    legend: { display: false },
+                                    tooltip: {
+                                        backgroundColor: 'rgba(31, 41, 55, 0.9)',
+                                        titleColor: '#facc15',
+                                        bodyFont: { family: 'monospace' },
+                                        padding: 10,
+                                        cornerRadius: 8,
+                                        displayColors: false,
+                                        callbacks: {
+                                            title: (items) => {
+                                                const timestamp = items[0].parsed.x;
+                                                return new Date(timestamp * 1000).toLocaleString();
+                                            }
+                                        }
+                                    }
+                                },
+                                scales: {
+                                    x: { 
+                                        type: 'linear', // 切换为线性时间轴
+                                        grid: { color: 'rgba(255,255,255,0.05)' }, 
+                                        ticks: { 
+                                            color: '#9ca3af', 
+                                            maxTicksLimit: 8, 
+                                            font: { size: 10 },
+                                            callback: (value) => {
+                                                const d = new Date(value * 1000);
+                                                return `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
+                                            }
+                                        } 
+                                    },
+                                    y: { 
+                                        grid: { color: 'rgba(255,255,255,0.05)' }, 
+                                        ticks: { 
+                                            color: '#9ca3af',
+                                            callback: (value) => value.toFixed(1),
+                                            font: { size: 10 }
+                                        } 
+                                    }
+                                },
+                                 interaction: { intersect: false, mode: 'index' }
+                            },
+                            plugins: [{
+                                id: 'highLowMarkers',
+                                afterDatasetsDraw(chart) {
+                                    const { ctx, scales: { y }, chartArea: { left, right } } = chart;
+                                    const dataset = chart.data.datasets[0].data;
+                                    const validData = dataset.filter(d => d.y !== null).map(d => d.y);
+                                    if (validData.length < 2) return;
+ 
+                                    let minPrice = Math.min(...validData);
+                                    let maxPrice = Math.max(...validData);
+
+                                    
+                                     const drawLabel = (val, color, label) => {
+                                        const yPos = y.getPixelForValue(val);
+                                        
+                                        // 绘制虚线
+                                        ctx.strokeStyle = color;
+                                        ctx.lineWidth = 1;
+                                        ctx.setLineDash([5, 5]);
+                                        ctx.beginPath();
+                                        ctx.moveTo(left, yPos);
+                                        ctx.lineTo(right, yPos);
+                                        ctx.stroke();
+                                        ctx.setLineDash([]);
+                                        
+                                        // 设置标签文本
+                                        const text = ` ${label}: ${val.toFixed(2)} `;
+                                        ctx.font = 'bold 13px monospace';
+                                        const textWidth = ctx.measureText(text).width;
+                                        const textHeight = 22;
+                                        
+                                        // 智能避让逻辑：如果离顶部太近，标签向下显示
+                                        const labelY = yPos < 30 ? yPos + 2 : yPos - 11;
+                                        // 将标签放置在右边距区域，离图表边缘 5px
+                                        const labelX = right + 5; 
+                                        
+                                        // 1. 绘制实心背景色块 (红色或绿色)
+                                        ctx.fillStyle = color;
+                                        // 绘制圆角矩形背景
+                                        ctx.beginPath();
+                                        const radius = 5;
+                                        const x = labelX, y_rect = labelY, w = textWidth, h = textHeight;
+                                        ctx.moveTo(x + radius, y_rect);
+                                        ctx.lineTo(x + w - radius, y_rect);
+                                        ctx.quadraticCurveTo(x + w, y_rect, x + w, y_rect + radius);
+                                        ctx.lineTo(x + w, y_rect + h - radius);
+                                        ctx.quadraticCurveTo(x + w, y_rect + h, x + w - radius, y_rect + h);
+                                        ctx.lineTo(x + radius, y_rect + h);
+                                        ctx.quadraticCurveTo(x, y_rect + h, x, y_rect + h - radius);
+                                        ctx.lineTo(x, y_rect + radius);
+                                        ctx.quadraticCurveTo(x, y_rect, x + radius, y_rect);
+                                        ctx.closePath();
+                                        ctx.fill();
+                                        
+                                        // 2. 绘制白色文字
+                                        ctx.fillStyle = '#FFFFFF';
+                                        ctx.textAlign = 'left';
+                                        ctx.textBaseline = 'top';
+                                        ctx.fillText(text, labelX, labelY + 3);
+                                        
+                                        // 3. 补充一段虚线将图表线引导至标签
+                                        ctx.strokeStyle = color;
+                                        ctx.setLineDash([2, 2]);
+                                        ctx.beginPath();
+                                        ctx.moveTo(right, yPos);
+                                        ctx.lineTo(labelX, yPos);
+                                        ctx.stroke();
+                                        ctx.setLineDash([]);
+                                    };
+
+
+                                    drawLabel(maxPrice, 'rgba(239, 68, 68, 0.8)', 'H');
+                                    drawLabel(minPrice, 'rgba(34, 197, 94, 0.8)', 'L');
+                                }
+                            }]
                         });
                     });
                 },
+
                 updateChartData(newData) {
                     if (!this.chartInstance) return;
                     
-                    const maxPoints = 120;
-                    const labels = this.chartInstance.data.labels;
-                    const data = this.chartInstance.data.datasets[0].data;
-
-                    // 避免重复数据
-                    if (labels.length > 0 && labels[labels.length-1] === newData.time_str) return;
-
-                    labels.push(newData.time_str);
-                    data.push(newData.price);
-
-                    if (labels.length > maxPoints) {
-                        labels.shift();
-                        data.shift();
-                    }
-                    this.chartInstance.update('none'); // mode 'none' for performance
+                    // 将新点加入 historyData 供 processDataForChart 使用
+                    this.historyData.push(newData);
+                    
+                    // 重新计算并全量更新
+                    const chartData = this.processDataForChart(this.historyData);
+                    this.chartInstance.data.datasets[0].data = chartData;
+                    
+                    this.chartInstance.update('none'); 
                 }
             },
             mounted() {
                 // 初始化加载
                 this.fetchHistory();
                 this.fetchRecords();
+                this.fetchSettings();
                 this.fetchPrice();
                 
                 // 定时刷新
