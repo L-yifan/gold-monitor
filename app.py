@@ -532,11 +532,7 @@ def background_fetch_loop():
             if data:
                 with lock:
                     # 添加到历史记录
-                    price_history.append({
-                        "price": data["price"],
-                        "timestamp": data["timestamp"],
-                        "time_str": data["time_str"]
-                    })
+                    price_history.append(data)
                 # 记录成功后保存数据（内部包含清理逻辑）
                 save_data()
             

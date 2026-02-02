@@ -130,6 +130,14 @@
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
             background: rgba(59, 130, 246, 0.5);
         }
+
+        /* 修复：确保多行文本截断生效 */
+        .line-clamp-2 {
+            display: -webkit-box;
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 2;
+            overflow: hidden;
+        }
     </style>
 </head>
 <body class="bg-[#0b0f19] text-gray-200 min-h-screen font-sans selection:bg-blue-500/30 selection:text-blue-200 overflow-x-hidden relative">
@@ -235,7 +243,7 @@
                             </span>
                             <!-- Source Badge -->
                             <span v-if="currentData.source" 
-                                  class="text-xs px-2 py-0.5 rounded border border-white/20 ml-auto self-start mt-2 opacity-70"
+                                  class="text-xs px-2 py-0.5 rounded border border-white/20 ml-auto self-start mt-2 opacity-70 whitespace-nowrap shrink-0"
                                   :title="'数据来源: ' + currentData.source">
                                 {{ currentData.source }}
                             </span>
@@ -263,7 +271,7 @@
                         <div v-if="currentData.volatility" class="mt-4 pt-4 border-t border-white/10 grid grid-cols-2 gap-4 text-sm text-gray-200 opacity-90">
                             <div class="col-span-2 flex justify-between items-center mb-1">
                                 <span class="text-xs font-bold text-yellow-400/80">24H 波动摘要</span>
-                                <span class="text-[10px] opacity-40">基于 {{ currentData.count }} 样本</span>
+                                <span class="text-[10px] opacity-40">基于 {{ currentData.count }} 条样本</span>
                             </div>
                             <div>
                                 <p class="text-xs opacity-60">24H 最高</p>
@@ -651,7 +659,7 @@
                     <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-6">
                         <div v-for="h in holdings" :key="h.code" 
                              @click="toggleHoldings(h)"
-                             class="group relative bg-[#1c2230]/60 backdrop-blur-xl rounded-2xl border border-white/5 hover:border-blue-500/30 hover:shadow-[0_20px_40px_rgba(0,0,0,0.3)] transition-all duration-300 cursor-pointer overflow-hidden flex flex-col h-[180px]"
+                             class="group relative bg-[#1c2230]/60 backdrop-blur-xl rounded-2xl border border-white/5 hover:border-blue-500/30 hover:shadow-[0_20px_40px_rgba(0,0,0,0.3)] transition-all duration-300 cursor-pointer overflow-hidden flex flex-col min-h-[180px]"
                              :class="[
                                 h.animating && h.changeType === 'up' ? 'animate-flash-up' : '',
                                 h.animating && h.changeType === 'down' ? 'animate-flash-down' : ''
@@ -665,8 +673,8 @@
                             <div class="p-4 flex-1 flex flex-col justify-between">
                                 <!-- 顶部：名称与代码 -->
                                 <div class="flex justify-between items-start gap-2">
-                                    <div class="min-w-0">
-                                        <h4 class="font-black text-gray-100 truncate text-[13px] tracking-tight mb-0.5 group-hover:text-blue-300 transition-colors">{{ h.name }}</h4>
+                                    <div class="min-w-0 flex-1">
+                                        <h4 class="font-black text-gray-100 whitespace-normal line-clamp-2 text-[13px] tracking-tight mb-0.5 group-hover:text-blue-300 transition-colors" :title="h.name">{{ h.name }}</h4>
                                         <div class="flex items-center gap-1.5">
                                             <span class="text-[10px] bg-white/5 text-gray-500 px-1.5 py-0.5 rounded font-mono border border-white/5 uppercase">{{ h.code }}</span>
                                             <span v-if="!h.data_available" class="text-[9px] text-yellow-500 border border-yellow-500/20 px-1 rounded animate-pulse">OFFLINE</span>
@@ -820,20 +828,12 @@
                              ]">
                             
                             <!-- S013: 核心信息区 (高密度布局) -->
-                            <div class="space-y-2">
+                            <div class="flex-1 space-y-2">
                                 <!-- 第一段：头部标识 (更紧凑) -->
                                 <div class="flex justify-between items-start gap-1">
                                     <div class="flex items-center gap-1.5 min-w-0 flex-1">
-                                        <h3 class="font-bold text-sm text-white truncate leading-tight" :title="fund.name">{{ fund.name }}</h3>
+                                        <h3 class="font-bold text-sm text-white whitespace-normal line-clamp-2 leading-tight" :title="fund.name">{{ fund.name }}</h3>
                                         <span class="text-[10px] bg-gray-900/50 text-gray-500 px-1 py-0.5 rounded font-mono shrink-0">{{ fund.code }}</span>
-                                    </div>
-                                    <!-- 持仓标签 -->
-                                    <div v-if="isFundInHoldings(fund.code)" 
-                                         class="shrink-0 flex items-center gap-1 bg-blue-500/20 text-blue-400 border border-blue-500/30 px-1.5 py-0.5 rounded text-[10px] font-bold shadow-[0_0_8px_rgba(59,130,246,0.15)] backdrop-blur-sm">
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3">
-                                            <path fill-rule="evenodd" d="M10 2c-1.716 0-3.408.106-5.07.31C3.806 2.45 3 3.414 3 4.517V17.25a.75.75 0 001.075.676L10 15.082l5.925 2.844A.75.75 0 0017 17.25V4.517c0-1.103-.806-2.068-1.93-2.207A41.403 41.403 0 0010 2z" clip-rule="evenodd" />
-                                        </svg>
-                                        持仓
                                     </div>
                                 </div>
 
@@ -857,12 +857,17 @@
                                         <span class="text-sm font-bold text-gray-300 font-mono transition-transform" :class="fund.animating ? 'scale-110' : ''">{{ fund.price }}</span>
                                     </div>
                                 </div>
+                            </div>
 
-                                <!-- 第三段：状态脚部 (仅显示核心时间) -->
-                                <div class="flex justify-between items-center opacity-40 group-hover:opacity-80 transition-opacity">
-                                    <span class="text-[10px] text-gray-500 font-mono">{{ fund.time_str }}</span>
-                                    <div v-if="fund.animating" class="w-1 h-1 rounded-full animate-ping"
-                                         :class="fund.changeType === 'up' ? 'bg-red-400' : 'bg-green-400'"></div>
+                            <!-- 第三段：状态脚部 (显示核心时间与持仓状态) -->
+                            <div class="mt-2 flex justify-between items-end">
+                                <span class="text-[10px] text-gray-500 font-mono opacity-40 group-hover:opacity-100 transition-opacity">{{ fund.time_str }}</span>
+                                <div class="flex items-center gap-2">
+                                    <!-- 持仓标签 (常驻高亮) -->
+                                    <div v-if="isFundInHoldings(fund.code)" 
+                                         class="flex items-center gap-1 bg-blue-500/30 text-blue-300 border border-blue-500/50 px-1.5 py-0.5 rounded text-[9px] font-bold shadow-[0_0_12px_rgba(59,130,246,0.25)] backdrop-blur-sm">
+                                        持仓
+                                    </div>
                                 </div>
                             </div>
 
@@ -1139,7 +1144,7 @@
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5 mt-0.5 text-blue-400 shrink-0">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
                             </svg>
-                            <p class="text-xs text-gray-400 leading-relaxed italic">
+                            <p class="text-xs text-gray-400 leading-relaxed">
                                 数据提示：前十大重仓股为季度公开披露数据，具有滞后性。实时贡献度基于当前股票涨跌幅估算，仅供基金日内波动参考，不代表基金实际净值。
                             </p>
                         </div>
