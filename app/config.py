@@ -81,3 +81,12 @@ HEADERS = {
     "Accept": "application/json, text/plain, */*",
     "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8"
 }
+
+# ==================== 交易时间配置 ====================
+# 使用百度日历 API 获取节假日（无需 API Key，免费稳定）
+HOLIDAY_API_URL = "https://sp0.baidu.com/8aQDcjqpAAV3otqbppnN2DJv/api.php?resource_id=6017&query={year}年节假日"
+HOLIDAY_CACHE_TTL = 86400  # 节假日数据缓存有效期（24小时）
+
+# 采集频率配置
+FETCH_INTERVAL_TRADING = 5       # 交易时间内采集间隔（秒）
+FETCH_INTERVAL_NON_TRADING = 300  # 非交易时间采集间隔（秒）
