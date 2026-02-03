@@ -1905,7 +1905,10 @@
                     isConnected: false,
                     isRecording: false,
                     hasInitializedBuyPrice: false,
-                    timer: null,
+                    priceTimer: null,    // 金价轮询定时器
+                    fundTimer: null,     // 基金轮询定时器
+                    lastPriceInterval: null,   // 上次金价轮询间隔
+                    lastFundInterval: null,    // 上次基金轮询间隔
                     tempBuyPrice: null, // 用于输入框获取焦点时暂存数据
                     priceAnimating: false, // 控制价格跳动动画
                     chartSwitching: false, // 控制图表切换动画
@@ -2209,21 +2212,26 @@
 
                 startPricePolling() {
                     // 先清除旧定时器
-                    if (this.timer) clearInterval(this.timer);
+                    if (this.priceTimer) {
+                        clearInterval(this.priceTimer);
+                    }
 
                     // 根据交易状态设置轮询间隔
                     const interval = this.tradingStatus.is_trading_time ? 5000 : 300000; // 5秒或5分钟
-                    this.timer = setInterval(this.fetchPrice, interval);
+                    
+                    this.priceTimer = setInterval(() => {
+                        this?.fetchPrice?.();
+                    }, interval);
                     console.log(`[轮询] 黄金价格采集间隔已设置为 ${interval / 1000} 秒`);
                 },
 
                 startFundPolling() {
                     // 先清除旧定时器
-                    if (this.timer) clearInterval(this.timer);
+                    if (this.fundTimer) clearInterval(this.fundTimer);
 
                     // 根据交易状态设置轮询间隔
                     const interval = this.fundTradingStatus.is_trading_time ? 3000 : 300000; // 交易时间 3秒，非交易时间 5分钟
-                    this.timer = setInterval(() => {
+                    this.fundTimer = setInterval(() => {
                         this.fetchFunds(true);
                         this.fetchHoldings(true, true);
                     }, interval);
@@ -2232,15 +2240,24 @@
 
                 adjustPollingInterval() {
                     if (this.currentView !== 'gold') return;
-                    // 交易状态变化时调整轮询频率
-                    const shouldBeTrading = this.tradingStatus.is_trading_time;
-                    // 这里判断逻辑有误，应该记录当前的 interval 或者直接重置
-                    this.startPricePolling();
+                    
+                    // 只在间隔真正变化时才重启定时器
+                    const newInterval = this.tradingStatus.is_trading_time ? 5000 : 300000;
+                    if (this.lastPriceInterval !== newInterval) {
+                        this.lastPriceInterval = newInterval;
+                        this.startPricePolling();
+                    }
                 },
 
                 adjustFundPollingInterval() {
                     if (this.currentView !== 'fund') return;
-                    this.startFundPolling();
+                    
+                    // 只在间隔真正变化时才重启定时器
+                    const newInterval = this.fundTradingStatus.is_trading_time ? 3000 : 300000;
+                    if (this.lastFundInterval !== newInterval) {
+                        this.lastFundInterval = newInterval;
+                        this.startFundPolling();
+                    }
                 },
 
                 formatCountdown(seconds) {
@@ -3016,41 +3033,6 @@
                         saving: false
                     };
                 },
-                async checkTradingEvents() {
-                    try {
-                        const res = await fetch('/api/trading-status');
-                        const data = await res.json();
-                        if (data.success) {
-                            const newStatus = data.data;
-                            const oldPhase = this.lastTradingPhase;
-                            const newPhase = newStatus.trading_phase;
-
-                            // 检测开收盘事件
-                            const eventMap = {
-                                'day_auction_day_session': { name: '日间交易开始', icon: '☀️' },
-                                'day_session_closed': { name: '日间交易结束', icon: '🌅' },
-                                'night_auction_night_session': { name: '夜间交易开始', icon: '🌙' },
-                                'night_session_closed': { name: '夜间交易结束', icon: '🌃' }
-                            };
-
-                            const eventKey = `${oldPhase}_${newPhase}`;
-                            if (eventMap[eventKey] && oldPhase !== newPhase) {
-                                const event = eventMap[eventKey];
-                                this.showTradingNotification(event.name, event.icon);
-                            }
-
-                            // 更新状态
-                            this.tradingStatus = newStatus;
-                            this.lastTradingPhase = newPhase;
-
-                            // 根据交易状态调整轮询频率
-                            this.adjustPollingInterval();
-                        }
-                    } catch (e) {
-                        console.error('检查交易事件失败', e);
-                    }
-                },
-
                 isFundInHoldings(code) {
                     return this.holdings.some(h => String(h.code) === String(code));
                 },
@@ -3199,16 +3181,21 @@
                     }
                 }
             },
-            mounted() {
+            async mounted() {
                 // 初始化加载
                 this.fetchHistory();
                 this.fetchRecords();
                 this.fetchSettings();
                 this.fetchPrice();
 
-                // 初始化交易状态
-                this.fetchTradingStatus('gold');
-                this.fetchTradingStatus('fund');
+                // 初始化交易状态（等待完成）
+                try {
+                    await this.fetchTradingStatus('gold');
+                    await this.fetchTradingStatus('fund');
+                } catch (e) {
+                    console.error('获取交易状态失败:', e);
+                }
+
                 // 每秒检查一次交易状态（用于检测开收盘事件）
                 this.tradingTimer = setInterval(this.checkTradingEvents, 1000);
 
@@ -3224,7 +3211,8 @@
                 window.addEventListener('resize', this.handleResize);
             },
             beforeUnmount() {
-                if (this.timer) clearInterval(this.timer);
+                if (this.priceTimer) clearInterval(this.priceTimer);
+                if (this.fundTimer) clearInterval(this.fundTimer);
                 if (this.tradingTimer) clearInterval(this.tradingTimer);
                 window.removeEventListener('resize', this.handleResize);
                 if (this.chartInstance) {
