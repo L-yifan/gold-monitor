@@ -332,7 +332,7 @@
             position: fixed;
             right: 40px;
             top: 55px;
-            width: 100px;
+            width: 111px;
             max-height: 280px;
             background: #161b2a;
             border: 1px solid rgba(255, 255, 255, 0.05);
@@ -1320,10 +1320,11 @@
                                         <div class="flex flex-col items-end">
                                             <div
                                                 class="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-0.5 opacity-60 text-right">
-                                                预估盈亏</div>
+                                                今日预估盈亏</div>
                                             <span class="text-lg font-black font-mono"
-                                                :class="h.profit_amount >= 0 ? 'text-red-400' : 'text-green-400'">
-                                                {{ (h.profit_amount >= 0 ? '+' : '') + h.profit_amount.toFixed(0) }}
+                                                :class="h.today_profit >= 0 ? 'text-red-400' : 'text-green-400'">
+                                                {{ (h.today_profit >= 0 ? '+' : '') + (h.today_profit !== undefined ?
+                                                h.today_profit.toFixed(2) : '0.00') }}
                                             </span>
                                         </div>
                                     </div>

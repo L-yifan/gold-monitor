@@ -47,6 +47,7 @@ def fetch_fund_from_eastmoney(fund_code):
                 "code": data['fundcode'],
                 "name": data['name'],
                 "price": float(data['gsz']),      # 估算净值
+                "dwjz": float(data['dwjz']) if data.get('dwjz') and str(data['dwjz']).strip() else 0,      # 昨日单位净值
                 "change": float(data['gszzl']),   # 估算涨跌幅 (%)
                 "time_str": data['gztime'],       # 估值时间
                 "timestamp": datetime.now().timestamp(),
@@ -81,12 +82,14 @@ def fetch_fund_from_sina(fund_code):
         if match:
             parts = match.group(1).split(',')
             if len(parts) > 1:
-                # 新浪接口通常只返回净值，实时估值可能需要额外接口，这里仅作基本的名称获取
+                # 新浪接口返回: 名称,净值,累计净值,日期
+                current_price = float(parts[1]) if parts[1] else 0
                 return {
                     "code": fund_code,
                     "name": parts[0],
-                    "price": float(parts[1]) if parts[1] else 0,
-                    "change": 0, # 新浪此接口可能无实时估值涨幅
+                    "price": current_price,
+                    "dwjz": current_price,  # 新浪接口无昨日净值，使用当前净值作为近似
+                    "change": 0,  # 新浪此接口可能无实时估值涨幅
                     "time_str": parts[3] if len(parts) > 3 else datetime.now().strftime("%Y-%m-%d"),
                     "timestamp": datetime.now().timestamp(),
                     "source": "新浪财经(仅净值)"
@@ -150,16 +153,45 @@ def build_holdings_response(holdings, fund_data_list, cached_map):
         cost = cost_price * shares
         total_cost += cost
 
-        current_price = fund_data['price'] if fund_data else 0
-        change = fund_data['change'] if fund_data else 0
+        # 安全获取数值，确保不会是 None（dict.get 在值为 None 时不会返回默认值）
+        current_price = (fund_data.get('price') or 0) if fund_data else 0
+        change = (fund_data.get('change') or 0) if fund_data else 0
         time_str = fund_data.get('time_str', '--') if fund_data else '--'
         source = fund_data.get('source', '--') if fund_data else '--'
+
+        # 确保数值类型
+        try:
+            current_price = float(current_price)
+            change = float(change)
+        except (TypeError, ValueError):
+            current_price = 0
+            change = 0
 
         market_value = current_price * shares if current_price > 0 else 0
         total_value += market_value
 
         profit_amount = market_value - cost if current_price > 0 else 0
         profit_rate = ((current_price - cost_price) / cost_price * 100) if cost_price > 0 and current_price > 0 else 0
+
+        # 计算今日预估盈亏: (当前估值 - 昨日净值) * 持份额
+        dwjz = (fund_data.get('dwjz') or 0) if fund_data else 0
+        try:
+            dwjz = float(dwjz)
+        except (TypeError, ValueError):
+            dwjz = 0
+        
+        # 如果 dwjz 不存在但有 change (涨跌幅)，尝试倒推: previous = current / (1 + change/100)
+        # 注意: 这种倒推在精确度上可能略有偏差，但作为兜底逻辑可用
+        if dwjz <= 0 and current_price > 0 and change != 0:
+            try:
+                prev_price = current_price / (1 + change / 100)
+                dwjz = prev_price
+            except (ZeroDivisionError, TypeError, ValueError):
+                dwjz = 0
+
+        today_profit = 0
+        if dwjz > 0 and current_price > 0:
+            today_profit = (current_price - dwjz) * shares
 
         results.append({
             "code": holding['code'],
@@ -170,6 +202,7 @@ def build_holdings_response(holdings, fund_data_list, cached_map):
             "change": round(change, 2),
             "profit_rate": round(profit_rate, 2),
             "profit_amount": round(profit_amount, 2),
+            "today_profit": round(today_profit, 2),
             "market_value": round(market_value, 2),
             "cost": round(cost, 2),
             "time_str": time_str,
