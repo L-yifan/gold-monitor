@@ -2,7 +2,7 @@
 setlocal enabledelayedexpansion
 
 :: ================================================
-:: Gold Price Monitor - Auto-Adaptive Launcher
+:: Gold-Fund Monitor - Auto-Adaptive Launcher
 :: ================================================
 
 :: 1. Dynamically locate app.py in the script's directory

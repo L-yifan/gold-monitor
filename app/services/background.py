@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 后台任务模块
-包含后台定时抓取金价等任务
+包含后台定时采集任务（金价、基金数据等）
 """
 
 import time
@@ -13,7 +13,7 @@ from app.services.trading_hours import get_fetch_interval, check_trading_events
 
 
 def background_fetch_loop():
-    """后台持续抓取金价线程，根据交易时间智能调整采集频率"""
+    """后台持续采集任务线程，负责金价和基金数据的定时更新"""
     print("后台抓取线程启动...")
     
     last_trading_status = None

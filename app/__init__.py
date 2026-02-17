@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Flask 应用工厂
-国内金价实时监控系统
+个人投资监控看板
 """
 
 from flask import Flask

@@ -37,7 +37,33 @@
             --color-down: #22c55e;
             --bg-page: #0b0f19;
             --bg-card: #161b2a;
+            --bg-elevated: #1c2128;
+            --bg-hover: #242a33;
             --border-light: rgba(255, 255, 255, 0.05);
+            --border-default: rgba(255, 255, 255, 0.1);
+            --border-subtle: rgba(255, 255, 255, 0.06);
+            
+            /* 琥珀金主题色 */
+            --accent-primary: #d4a574;
+            --accent-light: #f5c684;
+            --accent-glow: rgba(212, 165, 116, 0.25);
+            --accent-subtle: rgba(212, 165, 116, 0.1);
+            
+            /* 涨跌颜色 */
+            --up: #dc2626;
+            --up-light: #ef4444;
+            --up-bg: rgba(220, 38, 38, 0.1);
+            --up-glow: rgba(220, 38, 68, 0.3);
+            
+            --down: #059669;
+            --down-light: #10b981;
+            --down-bg: rgba(5, 150, 105, 0.1);
+            --down-glow: rgba(5, 150, 105, 0.3);
+            
+            /* 文本颜色 */
+            --text-primary: #f0f0f0;
+            --text-secondary: #8b949e;
+            --text-muted: #484f58;
         }
 
         /* 硬件加速通用类 */
@@ -195,7 +221,7 @@
             }
 
             50% {
-                color: #facc15;
+                color: var(--accent-light);
             }
         }
 
@@ -335,6 +361,67 @@
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
             background: rgba(59, 130, 246, 0.5);
         }
+
+        /* ==================== 全局滚动条样式 (来自预览页) ==================== */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-card);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-default);
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--accent-primary);
+        }
+
+        /* ==================== 数字滚动动画 ==================== */
+        .digit-container {
+            overflow: hidden;
+            display: inline-block;
+            vertical-align: bottom;
+            padding: 0 4px;
+            margin: 0 -4px;
+        }
+
+        .digit-roll {
+            display: inline-block;
+            animation: digitRoll 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+
+        @keyframes digitRoll {
+            0% { transform: translateY(-120%); opacity: 0; }
+            40% { transform: translateY(10%); opacity: 1; }
+            100% { transform: translateY(0); opacity: 1; }
+        }
+
+        /* ==================== 卡片入场动画序列 ==================== */
+        .card-enter {
+            opacity: 0;
+            transform: translateY(30px);
+            animation: cardEnter 0.6s ease-out forwards;
+        }
+
+        @keyframes cardEnter {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* 动画延迟类 */
+        .delay-0 { animation-delay: 0s; }
+        .delay-1 { animation-delay: 0.1s; }
+        .delay-2 { animation-delay: 0.2s; }
+        .delay-3 { animation-delay: 0.3s; }
+        .delay-4 { animation-delay: 0.4s; }
+        .delay-5 { animation-delay: 0.5s; }
 
         /* 修复：确保多行文本截断生效 */
         .line-clamp-2 {
@@ -539,59 +626,105 @@
             transition: none;
         }
 
-        .status-pill.active::before {
-            animation: pill-shimmer 3s infinite;
+        .status-pill.gold-active::before,
+        .status-pill.fund-active::before {
+            animation: pill-shimmer-enhanced 3s infinite;
         }
 
-        @keyframes pill-shimmer {
+        @keyframes pill-shimmer-enhanced {
             0% {
                 left: -100%;
+                opacity: 0;
             }
-
-            30% {
-                left: 100%;
+            10% {
+                opacity: 1;
             }
-
+            90% {
+                opacity: 1;
+            }
             100% {
                 left: 100%;
+                opacity: 0;
             }
         }
 
-        .status-pill.active {
-            animation: pill-breath-active 3s ease-in-out infinite;
-            border-color: rgba(16, 185, 129, 0.2);
+        /* 金价页 - 交易中 */
+        .status-pill.gold-active {
+            animation: pill-breath-gold 3s ease-in-out infinite;
+            border-color: rgba(212, 165, 116, 0.3);
         }
 
-        .status-pill.holiday {
-            animation: pill-breath-holiday 4s ease-in-out infinite;
-            border-color: rgba(245, 158, 11, 0.2);
+        /* 金价页 - 假期 */
+        .status-pill.gold-holiday {
+            border-color: rgba(212, 165, 116, 0.25);
+            background: rgba(212, 165, 116, 0.03);
         }
 
-        @keyframes pill-breath-active {
+        /* 基金页 - 交易中 */
+        .status-pill.fund-active {
+            animation: pill-breath-fund 3s ease-in-out infinite;
+            border-color: rgba(59, 130, 246, 0.3);
+        }
 
-            0%,
-            100% {
-                box-shadow: 0 0 5px rgba(16, 185, 129, 0), inset 0 0 0 rgba(16, 185, 129, 0);
-                background: rgba(16, 185, 129, 0.02);
+        /* 基金页 - 假期 */
+        .status-pill.fund-holiday {
+            border-color: rgba(96, 165, 250, 0.25);
+            background: rgba(96, 165, 250, 0.03);
+        }
+
+        /* 金价页 - 休市 */
+        .status-pill.gold-closed {
+            border-color: rgba(107, 114, 128, 0.3);
+            background: rgba(107, 114, 128, 0.05);
+        }
+
+        /* 基金页 - 休市 */
+        .status-pill.fund-closed {
+            border-color: rgba(107, 114, 128, 0.3);
+            background: rgba(107, 114, 128, 0.05);
+        }
+
+        @keyframes pill-breath-gold {
+            0%, 100% {
+                box-shadow: 0 0 5px rgba(212, 165, 116, 0), inset 0 0 0 rgba(212, 165, 116, 0);
+                background: rgba(212, 165, 116, 0.02);
             }
-
             50% {
-                box-shadow: 0 0 20px rgba(16, 185, 129, 0.15), inset 0 0 8px rgba(16, 185, 129, 0.05);
-                background: rgba(16, 185, 129, 0.06);
+                box-shadow: 0 0 20px rgba(212, 165, 116, 0.2), inset 0 0 8px rgba(212, 165, 116, 0.08);
+                background: rgba(212, 165, 116, 0.08);
             }
         }
 
-        @keyframes pill-breath-holiday {
-
-            0%,
-            100% {
-                box-shadow: 0 0 5px rgba(245, 158, 11, 0);
-                background: rgba(245, 158, 11, 0.02);
+        @keyframes pill-breath-holiday-gold {
+            0%, 100% {
+                box-shadow: 0 0 5px rgba(212, 165, 116, 0);
+                background: rgba(212, 165, 116, 0.03);
             }
-
             50% {
-                box-shadow: 0 0 15px rgba(245, 158, 11, 0.1);
-                background: rgba(245, 158, 11, 0.05);
+                box-shadow: 0 0 15px rgba(212, 165, 116, 0.15);
+                background: rgba(212, 165, 116, 0.06);
+            }
+        }
+
+        @keyframes pill-breath-fund {
+            0%, 100% {
+                box-shadow: 0 0 5px rgba(59, 130, 246, 0), inset 0 0 0 rgba(59, 130, 246, 0);
+                background: rgba(59, 130, 246, 0.02);
+            }
+            50% {
+                box-shadow: 0 0 20px rgba(59, 130, 246, 0.2), inset 0 0 8px rgba(59, 130, 246, 0.08);
+                background: rgba(59, 130, 246, 0.08);
+            }
+        }
+
+        @keyframes pill-breath-holiday-fund {
+            0%, 100% {
+                box-shadow: 0 0 5px rgba(96, 165, 250, 0);
+                background: rgba(96, 165, 250, 0.03);
+            }
+            50% {
+                box-shadow: 0 0 15px rgba(96, 165, 250, 0.15);
+                background: rgba(96, 165, 250, 0.06);
             }
         }
 
@@ -629,29 +762,50 @@
             flex-shrink: 0;
         }
 
+        /* 金价页 - 交易中（亮琥珀金） */
         .led-dot.active {
-            background: #10b981;
-            box-shadow: 0 0 10px rgba(16, 185, 129, 0.8), 0 0 20px rgba(16, 185, 129, 0.4);
-            animation: led-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+            background: #e8c9a0;
+            box-shadow: 0 0 10px rgba(232, 201, 160, 0.8), 0 0 20px rgba(212, 165, 116, 0.4);
+            animation: led-pulse-enhanced 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
         }
 
+        /* 金价页 - 假期（标准琥珀金） */
         .led-dot.holiday {
-            background: #f59e0b;
-            box-shadow: 0 0 10px rgba(245, 158, 11, 0.8), 0 0 20px rgba(245, 158, 11, 0.4);
-            animation: led-pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+            background: #d4a574;
+            box-shadow: 0 0 10px rgba(212, 165, 116, 0.8), 0 0 20px rgba(212, 165, 116, 0.4);
         }
 
-        @keyframes led-pulse {
+        /* 基金页 - 交易中（科技蓝） */
+        .led-dot.fund-active {
+            background: #3b82f6;
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.8), 0 0 20px rgba(59, 130, 246, 0.4);
+            animation: led-pulse-enhanced 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
 
-            0%,
-            100% {
-                transform: scale(1);
+        /* 基金页 - 假期（浅蓝） */
+        .led-dot.fund-holiday {
+            background: #60a5fa;
+            box-shadow: 0 0 10px rgba(96, 165, 250, 0.8), 0 0 20px rgba(96, 165, 250, 0.4);
+        }
+
+        /* 金价页 - 休市（灰色） */
+        .led-dot.closed {
+            background: #6b7280;
+        }
+
+        /* 基金页 - 休市（灰色） */
+        .led-dot.fund-closed {
+            background: #6b7280;
+        }
+
+        @keyframes led-pulse-enhanced {
+            0%, 100% {
+                transform: scale(1) translateY(0);
                 filter: brightness(1);
             }
-
             50% {
-                transform: scale(1.3);
-                filter: brightness(1.4);
+                transform: scale(1.2) translateY(-1px);
+                filter: brightness(1.3);
             }
         }
 
@@ -957,7 +1111,7 @@
             class="fixed top-0 left-0 right-0 z-[60] bg-[#1a1f2e] border-b border-white/5 h-14 flex items-center justify-center gap-1 shadow-xl">
             <button @click="currentView = 'gold'"
                 class="px-6 py-1.5 rounded-full text-sm font-bold transition-all duration-300 relative overflow-hidden group"
-                :class="[currentView === 'gold' ? 'bg-[#facc15] text-[#0b0f19] shadow-lg shadow-yellow-500/20 nav-shimmer' : 'text-gray-400 hover:text-gray-200 hover:bg-white/5']">
+                :class="[currentView === 'gold' ? 'bg-[var(--accent-primary)] text-[#0b0f19] shadow-lg shadow-[var(--accent-primary)]/20 nav-shimmer' : 'text-gray-400 hover:text-gray-200 hover:bg-white/5']">
                 <span class="relative z-10">金价监控</span>
             </button>
             <div class="w-px h-4 bg-white/10 mx-2"></div>
@@ -1000,11 +1154,11 @@
                 <div class="flex-1 flex items-center gap-3">
                     <div class="flex flex-col">
                         <h1 class="text-xl font-extrabold tracking-tight hidden sm:block"
-                            :class="currentView === 'gold' ? 'text-[#facc15]' : 'text-blue-500'">
+                            :class="currentView === 'gold' ? 'text-[var(--accent-primary)]' : 'text-blue-500'">
                             {{ currentView === 'gold' ? 'Au99.99' : '基金估值' }}
                         </h1>
                         <h1 class="text-lg font-extrabold sm:hidden"
-                            :class="currentView === 'gold' ? 'text-[#facc15]' : 'text-blue-500'">
+                            :class="currentView === 'gold' ? 'text-[var(--accent-primary)]' : 'text-blue-500'">
                             {{ currentView === 'gold' ? 'Au99.99' : '基金' }}
                         </h1>
                         <p class="text-gray-500 text-[10px] font-bold uppercase tracking-widest mt-0.5">
@@ -1014,13 +1168,13 @@
 
                     <!-- 紧凑型状态胶囊 (黄金) -->
                     <div v-if="currentView === 'gold'" class="status-pill ml-2"
-                        :class="{ 'active': tradingStatus.is_trading_time, 'holiday': tradingStatus.is_holiday }"
+                        :class="{ 'gold-active': tradingStatus.is_trading_time, 'gold-holiday': tradingStatus.is_holiday, 'gold-closed': !tradingStatus.is_trading_time && !tradingStatus.is_holiday }"
                         :title="tradingStatus.phase_name + (tradingStatus.time_until_next ? ' | ' + formatCountdown(tradingStatus.time_until_next, tradingStatus.next_event_time) + tradingStatus.next_event_name : '')">
                         <div class="led-dot"
-                            :class="{ 'active': tradingStatus.is_trading_time, 'holiday': tradingStatus.is_holiday }">
+                            :class="{ 'active': tradingStatus.is_trading_time, 'holiday': tradingStatus.is_holiday, 'closed': !tradingStatus.is_trading_time && !tradingStatus.is_holiday }">
                         </div>
                         <span class="pill-phase"
-                            :class="{ 'text-emerald-400': tradingStatus.is_trading_time, 'text-amber-400': tradingStatus.is_holiday }">{{
+                            :class="{ 'text-amber-400': tradingStatus.is_trading_time, 'text-amber-300': tradingStatus.is_holiday, 'text-gray-400': !tradingStatus.is_trading_time && !tradingStatus.is_holiday }">{{
                             tradingStatus.phase_name }}</span>
                         <div class="pill-details">
                             <span class="w-px h-2.5 bg-white/10"></span>
@@ -1041,13 +1195,13 @@
 
                     <!-- 紧凑型状态胶囊 (基金) -->
                     <div v-if="currentView === 'fund'" class="status-pill ml-2"
-                        :class="{ 'active': fundTradingStatus.is_trading_time, 'holiday': fundTradingStatus.is_holiday }"
+                        :class="{ 'fund-active': fundTradingStatus.is_trading_time, 'fund-holiday': fundTradingStatus.is_holiday, 'fund-closed': !fundTradingStatus.is_trading_time && !fundTradingStatus.is_holiday }"
                         :title="fundTradingStatus.phase_name">
                         <div class="led-dot"
-                            :class="{ 'active': fundTradingStatus.is_trading_time, 'holiday': fundTradingStatus.is_holiday }">
+                            :class="{ 'fund-active': fundTradingStatus.is_trading_time, 'fund-holiday': fundTradingStatus.is_holiday, 'fund-closed': !fundTradingStatus.is_trading_time && !fundTradingStatus.is_holiday }">
                         </div>
                         <span class="pill-phase"
-                            :class="{ 'text-emerald-400': fundTradingStatus.is_trading_time, 'text-amber-400': fundTradingStatus.is_holiday }">{{
+                            :class="{ 'text-blue-400': fundTradingStatus.is_trading_time, 'text-[#60a5fa]': fundTradingStatus.is_holiday, 'text-gray-400': !fundTradingStatus.is_trading_time && !fundTradingStatus.is_holiday }">{{
                             fundTradingStatus.phase_name }}</span>
                         <div class="pill-details">
                             <span class="w-px h-2.5 bg-white/10"></span>
@@ -1071,7 +1225,7 @@
                         class="p-2 rounded-full transition-all duration-300 ml-1 flex items-center justify-center"
                         :class="[
                             settings.trading_events_enabled 
-                                ? (currentView === 'gold' ? 'text-yellow-400 bg-yellow-400/10 hover:bg-yellow-400/20' : 'text-blue-400 bg-blue-400/10 hover:bg-blue-400/20') 
+                                ? (currentView === 'gold' ? 'text-[var(--accent-light)] bg-[var(--accent-primary)]/10 hover:bg-[var(--accent-primary)]/20' : 'text-blue-400 bg-blue-400/10 hover:bg-blue-400/20') 
                                 : 'text-gray-500 bg-gray-800/50 hover:bg-gray-800'
                         ]" :title="settings.trading_events_enabled ? '状态提醒已开启' : '状态提醒已禁用'">
                         <!-- 线性精致图标 (开启状态) -->
@@ -1104,9 +1258,14 @@
                     <div v-if="currentView === 'gold'"
                         class="bg-black/20 px-4 py-1.5 rounded-xl border border-white/5 price-container-breath flex items-center gap-3 hw-accel"
                         :class="{'pop-effect': priceAnimating}">
-                        <span class="text-2xl font-black font-mono tracking-tighter transition-colors duration-300"
-                            :class="isPriceUp ? 'text-red-500 price-text-breath-up' : 'text-green-500 price-text-breath-down'">
-                            {{ formatPrice(currentData.price) }}
+                        <span class="digit-container">
+                            <span class="text-2xl font-black font-mono tracking-tighter transition-colors duration-300"
+                                :class="[
+                                    isPriceUp ? 'text-red-500' : 'text-green-500',
+                                    { 'digit-roll': priceAnimating }
+                                ]">
+                                {{ formatPrice(currentData.price) }}
+                            </span>
                         </span>
                         <span class="text-xs font-black font-mono px-2 py-0.5 rounded bg-white/5"
                             :class="isPriceUp ? 'text-red-400 price-text-breath-up' : 'text-green-400 price-text-breath-down'">
@@ -1119,19 +1278,23 @@
                         class="bg-black/20 px-4 py-1.5 rounded-xl border border-white/5 flex items-center gap-4 hw-accel">
                         <div class="flex flex-col items-center">
                             <span class="text-[9px] text-gray-500 font-bold uppercase tracking-widest">预估今日收益</span>
-                            <span class="text-lg font-black font-mono"
-                                :class="(holdingsSummary.total_today_profit || 0) >= 0 ? 'text-red-500' : 'text-green-500'">
-                                {{ (holdingsSummary.total_today_profit || 0) >= 0 ? '+' : '' }}{{
-                                (holdingsSummary.total_today_profit || 0).toFixed(0) }}
+                            <span class="digit-container">
+                                <span class="text-lg font-black font-mono"
+                                    :class="[(holdingsSummary.total_today_profit || 0) >= 0 ? 'text-red-500' : 'text-green-500', { 'digit-roll': fundPriceAnimating }]">
+                                    {{ (holdingsSummary.total_today_profit || 0) >= 0 ? '+' : '' }}{{
+                                    (holdingsSummary.total_today_profit || 0).toFixed(0) }}
+                                </span>
                             </span>
                         </div>
                         <div class="w-px h-8 bg-white/10"></div>
                         <div class="flex flex-col items-center">
                             <span class="text-[9px] text-gray-500 font-bold uppercase tracking-widest">总盈亏</span>
-                            <span class="text-lg font-black font-mono"
-                                :class="holdingsSummary.total_profit >= 0 ? 'text-red-500' : 'text-green-500'">
-                                {{ holdingsSummary.total_profit >= 0 ? '+' : '' }}{{
-                                holdingsSummary.total_profit.toFixed(0) }}
+                            <span class="digit-container">
+                                <span class="text-lg font-black font-mono"
+                                    :class="[holdingsSummary.total_profit >= 0 ? 'text-red-500' : 'text-green-500', { 'digit-roll': fundPriceAnimating }]">
+                                    {{ holdingsSummary.total_profit >= 0 ? '+' : '' }}{{
+                                    holdingsSummary.total_profit.toFixed(0) }}
+                                </span>
                             </span>
                         </div>
                     </div>
@@ -1165,8 +1328,9 @@
                     <!-- 左侧：实时价格面板 -->
                     <div class="lg:col-span-1 space-y-6">
 
-                        <!-- 粘性价格容器 (修正偏移量以实现对齐) -->
-                        <div class="lg:sticky lg:top-28 space-y-6">
+                        <!-- 粘性价格容器 (修正偏移量以实现对齐) - 入场动画 -->
+                        <div class="lg:sticky lg:top-28 space-y-6"
+                            :class="{'card-enter delay-0': isFirstLoad && !cardsAnimated}">
                             <!-- 当前价格卡片 -->
                             <div class="rounded-2xl p-6 transition-all duration-500 solid-card card-ambient-breath shadow-2xl relative overflow-hidden"
                                 :class="[isPriceUp ? 'border-red-500/20 bg-gradient-to-br from-red-500/5 to-transparent' : 'border-green-500/20 bg-gradient-to-br from-green-500/5 to-transparent', {'pop-effect': priceAnimating}]">
@@ -1174,10 +1338,15 @@
                                     class="text-gray-500 text-[10px] font-black uppercase tracking-widest mb-2 opacity-80">
                                     Au99.99 实时成交价 (元/克)</p>
                                 <div class="flex items-baseline gap-3">
-                                    <span
-                                        class="text-5xl font-black font-mono tracking-tighter transition-transform duration-300"
-                                        :class="isPriceUp ? 'text-red-500 price-text-breath-up' : 'text-green-500 price-text-breath-down'">
-                                        {{ formatPrice(currentData.price) }}
+                                    <span class="digit-container">
+                                        <span
+                                            class="text-5xl font-black font-mono tracking-tighter transition-transform duration-300"
+                                            :class="[
+                                                isPriceUp ? 'text-red-500' : 'text-green-500',
+                                                { 'digit-roll': priceAnimating }
+                                            ]">
+                                            {{ formatPrice(currentData.price) }}
+                                        </span>
                                     </span>
                                     <span class="text-xl font-black font-mono"
                                         :class="isPriceUp ? 'text-red-400 price-text-breath-up' : 'text-green-400 price-text-breath-down'">
@@ -1238,8 +1407,9 @@
                                 </div>
                             </div>
 
-                            <!-- 买入价格设置 -->
-                            <div class="bg-[#161b2a] rounded-2xl p-6 shadow-xl border border-white/5">
+                            <!-- 买入价格设置 (delay-2) -->
+                            <div class="bg-[#161b2a] rounded-2xl p-6 shadow-xl border border-white/5"
+                                :class="{'card-enter delay-2': isFirstLoad && !cardsAnimated}">
                                 <h3
                                     class="text-sm font-black mb-4 text-gray-200 uppercase tracking-widest flex items-center gap-2">
                                     <span class="w-1 h-3 bg-yellow-500 rounded-full"></span>
@@ -1250,7 +1420,7 @@
                                     <div class="col-span-3 flex">
                                         <input type="number" v-model.number="buyPrice" @focus="handleInputFocus($event)"
                                             @blur="handleInputBlur"
-                                            class="w-full bg-gray-700 border border-gray-600 rounded-l-lg px-4 py-3 text-xl font-mono focus:outline-none focus:border-yellow-500 transition-colors"
+                                            class="w-full bg-gray-700 border border-gray-600 rounded-l-lg px-4 py-3 text-xl font-mono focus:outline-none focus:border-[var(--accent-primary)] transition-colors"
                                             placeholder="买入价" step="0.01">
                                         <button @click="resetToCurrent"
                                             class="bg-gray-600 hover:bg-gray-500 text-gray-300 px-3 py-3 rounded-r-lg transition border-l border-gray-500"
@@ -1263,7 +1433,7 @@
                                     <div class="col-span-2 relative">
                                         <input type="number" v-model.number="buyWeight"
                                             @focus="handleInputFocus($event)"
-                                            class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-xl font-mono focus:outline-none focus:border-yellow-500 transition-colors text-right pr-8"
+                                            class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-xl font-mono focus:outline-none focus:border-[var(--accent-primary)] transition-colors text-right pr-8"
                                             placeholder="克数" step="1">
                                         <span
                                             class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">g</span>
@@ -1276,11 +1446,22 @@
                                     </span>
                                     <span v-else class="text-gray-600">未设置</span>
                                 </p>
+                                
+                                <!-- 分隔线 -->
+                                <hr class="border-white/10 my-4">
+                                
+                                <!-- 记录按钮 -->
+                                <button @click="recordPrice" :disabled="!(buyPrice > 0)"
+                                    class="w-full font-bold py-3 rounded-xl transition shadow-lg btn-premium-breath flex justify-center items-center gap-2 text-sm"
+                                    :class="buyPrice > 0 ? 'bg-[var(--accent-primary)] hover:bg-[var(--accent-light)] text-black hover:shadow-[var(--accent-primary)]/30' : 'bg-gray-700 text-gray-500 cursor-not-allowed'">
+                                    <span>记录当前价格</span>
+                                    <span v-if="isRecording" class="animate-spin">⏳</span>
+                                </button>
                             </div>
 
-                            <!-- 当前盈亏状态 -->
+                            <!-- 当前盈亏状态 (delay-3) -->
                             <div class="bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-700 transition-opacity duration-300"
-                                :class="{'opacity-40 grayscale': !(buyPrice > 0)}">
+                                :class="[{'opacity-40 grayscale': !(buyPrice > 0)}, {'card-enter delay-3': isFirstLoad && !cardsAnimated}]">
                                 <h3 class="text-lg font-semibold mb-4">当前盈亏状态</h3>
                                 <div class="text-center py-4">
                                     <p class="text-gray-400 text-sm">若现在卖出 (扣除手续费后)</p>
@@ -1315,22 +1496,15 @@
                                     </div>
                                 </div>
                             </div>
-
-                            <!-- 记录按钮 -->
-                            <button @click="recordPrice" :disabled="!(buyPrice > 0)"
-                                class="w-full font-bold py-4 rounded-xl transition shadow-lg btn-premium-breath flex justify-center items-center gap-2"
-                                :class="buyPrice > 0 ? 'bg-blue-600 hover:bg-blue-700 text-white hover:shadow-blue-900/50' : 'bg-gray-700 text-gray-500 cursor-not-allowed'">
-                                <span>记录当前价格</span>
-                                <span v-if="isRecording" class="animate-spin">⏳</span>
-                            </button>
                         </div>
                     </div>
 
                     <!-- 右侧：图表和目标 -->
                     <div class="lg:col-span-2 space-y-6">
 
-                        <!-- 价格走势图 -->
-                        <div class="bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-700">
+                        <!-- 价格走势图 (delay-1) -->
+                        <div class="bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-700"
+                            :class="{'card-enter delay-1': isFirstLoad && !cardsAnimated}">
                             <div
                                 class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
                                 <div class="flex items-center gap-4">
@@ -1338,12 +1512,12 @@
                                     <div class="flex bg-gray-900/50 p-1 rounded-lg border border-gray-700">
                                         <button @click="setChartViewMode('30M')"
                                             class="px-3 py-1 text-xs rounded-md transition-all"
-                                            :class="chartViewMode === '30M' ? 'bg-yellow-500 text-black font-bold shadow-lg' : 'text-gray-400 hover:text-gray-200'">
+                                            :class="chartViewMode === '30M' ? 'bg-[var(--accent-primary)] text-black font-bold shadow-lg' : 'text-gray-400 hover:text-gray-200'">
                                             30分钟
                                         </button>
                                         <button @click="setChartViewMode('1D')"
                                             class="px-3 py-1 text-xs rounded-md transition-all"
-                                            :class="chartViewMode === '1D' ? 'bg-yellow-500 text-black font-bold shadow-lg' : 'text-gray-400 hover:text-gray-200'">
+                                            :class="chartViewMode === '1D' ? 'bg-[var(--accent-primary)] text-black font-bold shadow-lg' : 'text-gray-400 hover:text-gray-200'">
                                             当日
                                         </button>
                                     </div>
@@ -1359,10 +1533,11 @@
                             </div>
                         </div>
 
-                        <!-- 价格预警设置 -->
-                        <div class="bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-700">
+                        <!-- 价格预警设置 (delay-4) -->
+                        <div class="bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-700"
+                            :class="{'card-enter delay-4': isFirstLoad && !cardsAnimated}">
                             <div class="flex justify-between items-center mb-4">
-                                <h3 class="text-lg font-semibold text-yellow-400">价格预警 (浏览器通知)</h3>
+                                <h3 class="text-lg font-semibold text-[var(--accent-primary)]">价格预警 (浏览器通知)</h3>
                                 <div class="flex items-center gap-3">
                                     <button @click="resetAlertsToDefault"
                                         class="text-[10px] text-gray-500 hover:text-yellow-500 border border-gray-700 px-2 py-1 rounded transition">
@@ -1381,23 +1556,23 @@
                                 <div>
                                     <label class="text-xs text-gray-500 block mb-1">金价高于 (元/克)</label>
                                     <input type="number" v-model.number="settings.high" @blur="saveSettings"
-                                        class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-yellow-500"
+                                        class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[var(--accent-primary)]"
                                         placeholder="0.00" step="0.01">
                                 </div>
                                 <div>
                                     <label class="text-xs text-gray-500 block mb-1">金价低于 (元/克)</label>
                                     <input type="number" v-model.number="settings.low" @blur="saveSettings"
-                                        class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-yellow-500"
+                                        class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[var(--accent-primary)]"
                                         placeholder="0.00" step="0.01">
                                 </div>
                             </div>
                             <p class="text-[10px] text-gray-500 mt-3 italic">* 开启后请确保允许浏览器通知。触发后将进入 5 分钟冷却期。</p>
                         </div>
 
-                        <!-- 多目标盈利计算表 -->
+                        <!-- 多目标盈利计算表 (delay-5) -->
                         <div class="bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-700 transition-opacity duration-300"
-                            :class="{'opacity-40 grayscale': !(buyPrice > 0)}">
-                            <h3 class="text-lg font-semibold mb-4 text-yellow-400">目标卖出价格</h3>
+                            :class="[{'opacity-40 grayscale': !(buyPrice > 0)}, {'card-enter delay-5': isFirstLoad && !cardsAnimated}]">
+                            <h3 class="text-lg font-semibold mb-4 text-[var(--accent-primary)]">目标卖出价格</h3>
                             <div class="overflow-x-auto">
                                 <table class="w-full">
                                     <thead>
@@ -1455,8 +1630,9 @@
                             </div>
                         </div>
 
-                        <!-- 历史记录 -->
-                        <div class="bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-700">
+                        <!-- 历史记录 (delay-5) -->
+                        <div class="bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-700"
+                            :class="{'card-enter delay-5': isFirstLoad && !cardsAnimated}">
                             <div class="flex justify-between items-center mb-4">
                                 <h3 class="text-lg font-semibold">价格记录</h3>
                                 <div class="flex gap-2">
@@ -1592,14 +1768,17 @@
                             class="flex flex-col justify-center px-3 py-3 rounded-lg bg-black/10 border border-white/5 hover:bg-black/20 hover:border-blue-500/30 hover:shadow-lg hover:shadow-blue-500/10 transition-all duration-300 cursor-default">
                             <span class="text-[10px] uppercase tracking-[0.2em] text-gray-600 mb-1">预估今日收益</span>
                             <div class="flex items-baseline gap-1.5">
-                                <span
-                                    class="text-xl font-black font-mono tracking-tighter transition-colors duration-300"
-                                    :class="[
-                                        (holdingsSummary.total_today_profit || totalTodayProfit) >= 0 ? 'text-red-500' : 'text-green-500',
-                                        holdingsPulse.todayProfit ? 'animate-number-pulse' : ''
-                                    ]">
-                                    {{ (holdingsSummary.total_today_profit || totalTodayProfit) >= 0 ? '+' : '' }}{{
-                                    (holdingsSummary.total_today_profit || totalTodayProfit).toFixed(0) }}
+                                <span class="digit-container">
+                                    <span
+                                        class="text-xl font-black font-mono tracking-tighter transition-colors duration-300"
+                                        :class="[
+                                            (holdingsSummary.total_today_profit || totalTodayProfit) >= 0 ? 'text-red-500' : 'text-green-500',
+                                            holdingsPulse.todayProfit ? 'animate-number-pulse' : '',
+                                            { 'digit-roll': fundPriceAnimating }
+                                        ]">
+                                        {{ (holdingsSummary.total_today_profit || totalTodayProfit) >= 0 ? '+' : '' }}{{
+                                        (holdingsSummary.total_today_profit || totalTodayProfit).toFixed(0) }}
+                                    </span>
                                 </span>
                             </div>
                         </div>
@@ -1609,14 +1788,17 @@
                             class="flex flex-col justify-center px-3 py-3 rounded-lg bg-black/10 border border-white/5 hover:bg-black/20 hover:border-blue-500/30 hover:shadow-lg hover:shadow-blue-500/10 transition-all duration-300 cursor-default">
                             <span class="text-[10px] uppercase tracking-[0.2em] text-gray-600 mb-1">预期收益</span>
                             <div class="flex items-baseline gap-1.5">
-                                <span
-                                    class="text-xl font-black font-mono tracking-tighter transition-colors duration-300"
-                                    :class="[
-                                        holdingsSummary.total_profit >= 0 ? 'text-red-500' : 'text-green-500',
-                                        holdingsPulse.totalProfit ? 'animate-number-pulse' : ''
-                                    ]">
-                                    {{ holdingsSummary.total_profit >= 0 ? '+' : '' }}{{
-                                    holdingsSummary.total_profit.toFixed(0) }}
+                                <span class="digit-container">
+                                    <span
+                                        class="text-xl font-black font-mono tracking-tighter transition-colors duration-300"
+                                        :class="[
+                                            holdingsSummary.total_profit >= 0 ? 'text-red-500' : 'text-green-500',
+                                            holdingsPulse.totalProfit ? 'animate-number-pulse' : '',
+                                            { 'digit-roll': fundPriceAnimating }
+                                        ]">
+                                        {{ holdingsSummary.total_profit >= 0 ? '+' : '' }}{{
+                                        holdingsSummary.total_profit.toFixed(0) }}
+                                    </span>
                                 </span>
                             </div>
                         </div>
@@ -1626,15 +1808,18 @@
                             class="flex flex-col justify-center px-3 py-3 rounded-lg bg-black/10 border border-white/5 hover:bg-black/20 hover:border-blue-500/30 hover:shadow-lg hover:shadow-blue-500/10 transition-all duration-300 cursor-default">
                             <span class="text-[10px] uppercase tracking-[0.2em] text-gray-600 mb-1">投资回报</span>
                             <div class="flex items-baseline gap-1">
-                                <span
-                                    class="text-xl font-black font-mono tracking-tighter transition-colors duration-300"
-                                    :class="[
-                                        holdingsSummary.total_profit_rate >= 0 ? 'text-red-500' : 'text-green-500',
-                                        holdingsPulse.profitRate ? 'animate-number-pulse' : ''
-                                    ]">
-                                    {{ holdingsSummary.total_profit_rate >= 0 ? '+' : '' }}{{
-                                    holdingsSummary.total_profit_rate.toFixed(2) }}<span
-                                        class="text-xs ml-0.5 opacity-60">%</span>
+                                <span class="digit-container">
+                                    <span
+                                        class="text-xl font-black font-mono tracking-tighter transition-colors duration-300"
+                                        :class="[
+                                            holdingsSummary.total_profit_rate >= 0 ? 'text-red-500' : 'text-green-500',
+                                            holdingsPulse.profitRate ? 'animate-number-pulse' : '',
+                                            { 'digit-roll': fundPriceAnimating }
+                                        ]">
+                                        {{ holdingsSummary.total_profit_rate >= 0 ? '+' : '' }}{{
+                                        holdingsSummary.total_profit_rate.toFixed(2) }}<span
+                                            class="text-xs ml-0.5 opacity-60">%</span>
+                                    </span>
                                 </span>
                             </div>
                         </div>
@@ -2442,6 +2627,7 @@
                     holdingsLastUpdate: '--',
                     isLoadingHoldings: false,
                     holdingsTimer: null,
+                    fundPriceAnimating: false,  // 基金页数字滚动动画
 
                     // 持仓编辑模态框
                     holdingModal: {
@@ -2503,6 +2689,9 @@
                     priceAnimTimer: null, // 动画定时器引用
                     timeAnimTimer: null, // 金价时间动画定时器
                     fundTimeAnimTimer: null, // 基金时间动画定时器
+                    // 卡片入场动画控制
+                    isFirstLoad: true,      // 是否首次加载（控制入场动画触发）
+                    cardsAnimated: false,   // 卡片动画是否已完成
                     // 预警设置
                     settings: {
                         high: 0,
@@ -3932,6 +4121,14 @@
                             const newLastUpdate = data.last_update || '--';
                             const lastUpdateChanged = this.holdingsLastUpdate !== newLastUpdate;
                             this.holdingsLastUpdate = newLastUpdate;
+                            
+                            // 触发基金页数字滚动动画
+                            if (this.currentView === 'fund' && this.holdings.length > 0) {
+                                this.fundPriceAnimating = true;
+                                setTimeout(() => {
+                                    this.fundPriceAnimating = false;
+                                }, 600);
+                            }
                             // 只有当时间在基金视图下真正变化时才触发闪烁
                             if (lastUpdateChanged && this.currentView === 'fund') {
                                 if (this.fundTimeAnimTimer) clearTimeout(this.fundTimeAnimTimer);
@@ -4135,6 +4332,18 @@
 
                 // 响应式监听
                 window.addEventListener('resize', this.handleResize);
+
+                // 触发卡片入场动画（仅在首次加载时）
+                if (this.isFirstLoad) {
+                    this.$nextTick(() => {
+                        // 动画将在页面加载后自动触发
+                        // 1.2秒后标记动画完成，之后移除动画类
+                        setTimeout(() => {
+                            this.cardsAnimated = true;
+                            this.isFirstLoad = false;
+                        }, 1200);
+                    });
+                }
             },
             beforeUnmount() {
                 if (this.priceTimer) clearInterval(this.priceTimer);
