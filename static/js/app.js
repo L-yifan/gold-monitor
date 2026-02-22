@@ -60,8 +60,8 @@ createApp({
             cardsAnimated: false,
             settings: { high: 0, low: 0, enabled: false, trading_events_enabled: true },
             lastNotifiedTime: 0,
-            tradingStatus: { is_trading_time: false, trading_phase: 'closed', phase_name: '休市', next_event: null, next_event_time: null, time_until_next: null, is_holiday: false, weekday: 0, weekday_name: '' },
-            fundTradingStatus: { is_trading_time: false, trading_phase: 'closed', phase_name: '休市', next_event: null, next_event_time: null, time_until_next: null, is_holiday: false, weekday: 0, weekday_name: '' },
+            tradingStatus: { is_trading_time: false, trading_phase: 'closed', phase_name: '休市', next_event: null, next_event_time: null, time_until_next: null, is_holiday: false, holiday_name: null, weekday: 0, weekday_name: '' },
+            fundTradingStatus: { is_trading_time: false, trading_phase: 'closed', phase_name: '休市', next_event: null, next_event_time: null, time_until_next: null, is_holiday: false, holiday_name: null, weekday: 0, weekday_name: '' },
             lastTradingPhase: null,
             lastFundTradingPhase: null,
             tradingTimer: null,
@@ -422,19 +422,6 @@ createApp({
             else if (minutes > 0) return `${minutes}分${secs}秒`;
             else return `${secs}秒后`;
         },
-        getHolidayName() {
-            const now = new Date();
-            const month = now.getMonth() + 1;
-            const date = now.getDate();
-            if (month === 2 && date >= 15 && date <= 22) return '春节';
-            if (month === 4 && date >= 4 && date <= 6) return '清明节';
-            if (month === 5 && date >= 1 && date <= 2) return '劳动节';
-            if ((month === 5 && date >= 30) || (month === 6 && date <= 5)) return '端午节';
-            if ((month === 9 && date >= 20) || (month === 10 && date <= 5)) return '中秋节';
-            if (month === 10 && date >= 1 && date <= 7) return '国庆节';
-            if (month === 1 && date === 1) return '元旦';
-            return null;
-        },
         showToast(message, type = 'info') {
             const toast = document.createElement('div');
             toast.className = `fixed top-20 left-1/2 transform -translate-x-1/2 z-[70] px-6 py-3 rounded-full shadow-lg text-sm font-medium animate-fade-in`;
@@ -447,7 +434,7 @@ createApp({
         },
         handleResize() {
             if (this.chartInstance) {
-                this.chartInstance.options.layout.padding.right = window.innerWidth < 640 ? 60 : 110;
+                this.chartInstance.options.layout.padding.right = window.innerWidth < 640 ? 80 : 130;
                 this.chartInstance.update('none');
             }
         },
@@ -695,7 +682,7 @@ createApp({
                     animation: { duration: 600, easing: 'easeOutQuart' },
                     transitions: { active: { animation: { duration: 0 } } },
                     interaction: { intersect: false, mode: 'index' },
-                    layout: { padding: { left: 10, right: window.innerWidth < 640 ? 60 : 110, top: 15, bottom: 15 } },
+                    layout: { padding: { left: 10, right: window.innerWidth < 640 ? 80 : 130, top: 15, bottom: 15 } },
                     scales: {
                         x: {
                             type: 'linear',
@@ -736,54 +723,173 @@ createApp({
                         }
                     }
                 },
-                plugins: [{
-                    id: 'highLowMarkers',
-                    afterDatasetsDraw: (chart) => {
-                        const { ctx, chartArea: { left, right }, scales: { x, y } } = chart;
-                        const dataset = chart.data.datasets[0].data;
-                        const validData = dataset.filter(d => d.y !== null);
-                        if (validData.length < 2) return;
-                        const prices = validData.map(d => d.y);
-                        const maxPrice = Math.max(...prices);
-                        const minPrice = Math.min(...prices);
-                        const drawLabel = (val, label, color) => {
-                            const point = validData.find(d => d.y === val);
-                            if (!point) return;
-                            const xPos = x.getPixelForValue(point.x);
-                            const yPos = y.getPixelForValue(val);
-                            ctx.save();
-                            ctx.strokeStyle = color;
-                            ctx.setLineDash([2, 4]);
-                            ctx.lineWidth = 1;
-                            ctx.beginPath();
-                            ctx.moveTo(xPos, yPos);
-                            ctx.lineTo(right + 5, yPos);
-                            ctx.stroke();
-                            ctx.setLineDash([]);
-                            ctx.fillStyle = color;
-                            ctx.beginPath();
-                            ctx.arc(xPos, yPos, 3, 0, Math.PI * 2);
-                            ctx.fill();
-                            const text = `${label}: ${val.toFixed(2)}`;
-                            ctx.font = 'bold 10px JetBrains Mono';
-                            const textWidth = ctx.measureText(text).width;
-                            const bgWidth = textWidth + 10;
-                            const bgHeight = 16;
-                            const bgX = right + 5;
-                            const bgY = yPos - bgHeight / 2;
-                            ctx.fillStyle = color;
-                            this.drawRoundedRect(ctx, bgX, bgY, bgWidth, bgHeight, 4);
-                            ctx.fill();
-                            ctx.fillStyle = '#fff';
-                            ctx.textAlign = 'center';
-                            ctx.textBaseline = 'middle';
-                            ctx.fillText(text, bgX + bgWidth / 2, yPos);
-                            ctx.restore();
-                        };
-                        drawLabel(maxPrice, 'H', 'rgba(239, 68, 68, 0.8)');
-                        drawLabel(minPrice, 'L', 'rgba(34, 197, 94, 0.8)');
-                    }
-                }]
+                plugins: [(() => {
+                    const plugin = {
+                        id: 'highLowMarkers',
+                        hoveredTag: null,
+                        tagBounds: { high: null, low: null },
+                        boundCanvas: null,
+                        mouseMoveHandler: null,
+                        mouseLeaveHandler: null,
+                        afterInit: (chart) => {
+                            const canvas = chart.canvas;
+
+                            if (plugin.boundCanvas && plugin.mouseMoveHandler && plugin.mouseLeaveHandler) {
+                                plugin.boundCanvas.removeEventListener('mousemove', plugin.mouseMoveHandler);
+                                plugin.boundCanvas.removeEventListener('mouseleave', plugin.mouseLeaveHandler);
+                            }
+
+                            plugin.boundCanvas = canvas;
+                            plugin.mouseMoveHandler = (e) => {
+                                const rect = canvas.getBoundingClientRect();
+                                const x = e.clientX - rect.left;
+                                const y = e.clientY - rect.top;
+
+                                const chartRight = chart.chartArea.right;
+                                if (x < chartRight) {
+                                    if (plugin.hoveredTag !== null) {
+                                        plugin.hoveredTag = null;
+                                        canvas.style.cursor = 'default';
+                                        chart.draw();
+                                    }
+                                    return;
+                                }
+
+                                let newHovered = null;
+                                const bounds = plugin.tagBounds;
+
+                                // 检测顺序：优先检测 high，如果价格相同则新状态设为 'both' 将由逻辑处理
+                                if (bounds.both) {
+                                    if (x >= bounds.both.x && x <= bounds.both.x + bounds.both.w && y >= bounds.both.y && y <= bounds.both.y + bounds.both.h) {
+                                        newHovered = 'both';
+                                    }
+                                } else {
+                                    if (bounds.high && x >= bounds.high.x && x <= bounds.high.x + bounds.high.w && y >= bounds.high.y && y <= bounds.high.y + bounds.high.h) {
+                                        newHovered = 'high';
+                                    } else if (bounds.low && x >= bounds.low.x && x <= bounds.low.x + bounds.low.w && y >= bounds.low.y && y <= bounds.low.y + bounds.low.h) {
+                                        newHovered = 'low';
+                                    }
+                                }
+
+                                if (newHovered !== plugin.hoveredTag) {
+                                    plugin.hoveredTag = newHovered;
+                                    canvas.style.cursor = newHovered ? 'pointer' : 'default';
+                                    chart.draw();
+                                }
+                            };
+                            plugin.mouseLeaveHandler = () => {
+                                if (plugin.hoveredTag !== null) {
+                                    plugin.hoveredTag = null;
+                                    canvas.style.cursor = 'default';
+                                    chart.draw();
+                                }
+                            };
+                            canvas.addEventListener('mousemove', plugin.mouseMoveHandler);
+                            canvas.addEventListener('mouseleave', plugin.mouseLeaveHandler);
+                        },
+                        beforeDestroy: (chart) => {
+                            const canvas = plugin.boundCanvas || chart.canvas;
+                            if (canvas && plugin.mouseMoveHandler) {
+                                canvas.removeEventListener('mousemove', plugin.mouseMoveHandler);
+                            }
+                            if (canvas && plugin.mouseLeaveHandler) {
+                                canvas.removeEventListener('mouseleave', plugin.mouseLeaveHandler);
+                            }
+                            if (canvas) {
+                                canvas.style.cursor = 'default';
+                            }
+                            plugin.boundCanvas = null;
+                            plugin.mouseMoveHandler = null;
+                            plugin.mouseLeaveHandler = null;
+                            plugin.hoveredTag = null;
+                        },
+                        afterDatasetsDraw: (chart) => {
+                            const { ctx, chartArea: { right }, scales: { x, y } } = chart;
+                            const dataset = chart.data.datasets[0].data;
+                            const validData = dataset.filter(d => d.y !== null);
+                            if (validData.length < 2) return;
+
+                            const prices = validData.map(d => d.y);
+                            const maxPrice = Math.max(...prices);
+                            const minPrice = Math.min(...prices);
+
+                            // 重置边界缓存
+                            plugin.tagBounds = { high: null, low: null, both: null };
+
+                            const drawLabel = (val, label, color, type, customY) => {
+                                const point = validData.find(d => d.y === val);
+                                if (!point) return;
+                                const xPos = x.getPixelForValue(point.x);
+                                const actualY = y.getPixelForValue(val);
+                                const drawY = customY !== undefined ? customY : actualY;
+                                const isHovered = plugin.hoveredTag === type || (type !== 'both' && plugin.hoveredTag === 'both');
+
+                                ctx.save();
+                                // 线条连接到实际价格点 yPos
+                                ctx.strokeStyle = isHovered ? color.replace('0.8', '1') : color;
+                                ctx.setLineDash([2, 4]);
+                                ctx.lineWidth = isHovered ? 2 : 1;
+                                ctx.beginPath();
+                                ctx.moveTo(xPos, actualY);
+                                ctx.lineTo(right + 5, drawY);
+                                ctx.stroke();
+
+                                ctx.setLineDash([]);
+                                ctx.fillStyle = color;
+                                ctx.beginPath();
+                                ctx.arc(xPos, actualY, isHovered ? 4 : 3, 0, Math.PI * 2);
+                                ctx.fill();
+                                if (isHovered) {
+                                    ctx.strokeStyle = '#fff';
+                                    ctx.lineWidth = 1;
+                                    ctx.stroke();
+                                }
+
+                                const text = `${label}: ${val.toFixed(2)}`;
+                                const fontSize = isHovered ? 12 : 10;
+                                ctx.font = `bold ${fontSize}px JetBrains Mono`;
+                                const textMetrics = ctx.measureText(text);
+                                const textWidth = textMetrics.width;
+                                const bgWidth = textWidth + 12;
+                                const bgHeight = isHovered ? 22 : 16;
+                                const bgX = right + 5;
+                                const bgY = drawY - bgHeight / 2;
+
+                                plugin.tagBounds[type] = { x: bgX, y: bgY, w: bgWidth, h: bgHeight };
+
+                                ctx.fillStyle = color;
+                                this.drawRoundedRect(ctx, bgX, bgY, bgWidth, bgHeight, 4);
+                                ctx.fill();
+
+                                ctx.fillStyle = '#fff';
+                                ctx.textAlign = 'center';
+                                ctx.textBaseline = 'middle';
+                                ctx.fillText(text, bgX + bgWidth / 2, drawY);
+                                ctx.restore();
+                            };
+
+                            if (Math.abs(maxPrice - minPrice) < 0.001) {
+                                // 价格完全相同，合并显示
+                                drawLabel(maxPrice, 'H/L', '#d4a574', 'both');
+                            } else {
+                                let yMax = y.getPixelForValue(maxPrice);
+                                let yMin = y.getPixelForValue(minPrice);
+
+                                // 避让逻辑：如果两个标签太近，强制拉开距离
+                                const minGap = 20;
+                                if (Math.abs(yMax - yMin) < minGap) {
+                                    const mid = (yMax + yMin) / 2;
+                                    yMax = mid - minGap / 2;
+                                    yMin = mid + minGap / 2;
+                                }
+
+                                drawLabel(maxPrice, 'H', 'rgba(239, 68, 68, 0.8)', 'high', yMax);
+                                drawLabel(minPrice, 'L', 'rgba(34, 197, 94, 0.8)', 'low', yMin);
+                            }
+                        }
+                    };
+                    return plugin;
+                })()]
             });
             this.applyChartRange();
 

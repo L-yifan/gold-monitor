@@ -1,21 +1,15 @@
 # -*- coding: utf-8 -*-
 """
-交易所交易日历服务模块
-支持爬虫自动获取 + 内置数据备用
+上海黄金交易所交易日历服务模块
+支持爬虫自动获取 + 内置数据备用（独立缓存）
 """
 
-import re
-import time
 import json
 import os
-import requests
-from datetime import datetime, timedelta
+from datetime import datetime
 
-from app.config import (
-    EXCHANGE_CALENDAR_URL,
-    EXCHANGE_CALENDAR_FILE,
-    EXCHANGE_CALENDAR_CACHE_DIR
-)
+from app.config import SGE_HOLIDAY_CACHE_FILE
+from app.services.sge_holiday_crawler import fetch_sge_holiday_data
 
 
 # 内置2026年休市数据（来自上交所官网）
@@ -48,7 +42,7 @@ class ExchangeCalendarService:
     """交易所交易日历服务"""
     
     def __init__(self):
-        self.cache_file = EXCHANGE_CALENDAR_FILE
+        self.cache_file = SGE_HOLIDAY_CACHE_FILE
         self._ensure_cache_dir()
     
     def _ensure_cache_dir(self):
@@ -88,7 +82,17 @@ class ExchangeCalendarService:
                 all_dates.update(dates)
             return all_dates
         
-        # 2. 尝试从缓存读取
+        # 2. 尝试使用SGE爬虫获取
+        try:
+            sge_data = fetch_sge_holiday_data(year)
+            if sge_data:
+                all_dates = set(sge_data.get("all_holiday_dates", []))
+                if all_dates:
+                    return all_dates
+        except Exception as e:
+            print(f"[交易所日历] SGE爬虫调用失败: {e}")
+        
+        # 3. 尝试从本地缓存读取
         cache = self._load_cache()
         if cache:
             calendars = cache.get("calendars", {})
@@ -110,6 +114,16 @@ class ExchangeCalendarService:
         if year in BUILTIN_EXCHANGE_HOLIDAYS:
             return BUILTIN_EXCHANGE_HOLIDAYS[year].get("first_trading_days", {}).get(holiday_name)
         
+        # 尝试SGE爬虫数据
+        try:
+            sge_data = fetch_sge_holiday_data(year)
+            if sge_data:
+                result = sge_data.get("first_trading_days", {}).get(holiday_name)
+                if result:
+                    return result
+        except Exception:
+            pass
+        
         # 尝试从缓存读取
         cache = self._load_cache()
         if cache:
@@ -123,18 +137,34 @@ class ExchangeCalendarService:
         """根据日期获取节日名称"""
         date = datetime.strptime(date_str, "%Y-%m-%d")
         year = date.year
-        month = date.month
-        day = date.day
         
-        if year not in BUILTIN_EXCHANGE_HOLIDAYS:
-            return None
+        # 1. 内置数据
+        if year in BUILTIN_EXCHANGE_HOLIDAYS:
+            holidays = BUILTIN_EXCHANGE_HOLIDAYS[year].get("holidays", {})
+            for name, dates in holidays.items():
+                if date_str in dates:
+                    return name
         
-        holidays = BUILTIN_EXCHANGE_HOLIDAYS[year].get("holidays", {})
-        
-        for name, dates in holidays.items():
-            if date_str in dates:
-                return name
-        
+        # 2. SGE爬虫数据
+        try:
+            sge_data = fetch_sge_holiday_data(year)
+            if sge_data:
+                for name, dates in sge_data.get("holidays", {}).items():
+                    if date_str in dates:
+                        return name
+        except Exception:
+            pass
+
+        # 3. 本地缓存兜底（仅 SGE 独立缓存）
+        cache = self._load_cache()
+        if cache:
+            calendars = cache.get("calendars", {})
+            if str(year) in calendars:
+                holidays = calendars[str(year)].get("holidays", {})
+                for name, dates in holidays.items():
+                    if date_str in dates:
+                        return name
+
         return None
 
 

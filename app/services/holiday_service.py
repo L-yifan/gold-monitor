@@ -23,10 +23,9 @@ from app.utils.lunar_holiday_calculator import (
     apply_adjustments,
     LUNARDATE_AVAILABLE
 )
-from app.services.exchange_calendar import (
-    get_exchange_holidays,
-    get_exchange_first_trading_day,
-    get_holiday_name_by_date
+from app.services.exchange_calendar import get_exchange_holidays
+from app.services.exchange_calendar_crawler import (
+    fetch_exchange_holidays_with_status,
 )
 
 
@@ -338,11 +337,14 @@ def is_holiday(dt=None, market_type="fund"):
     date_str = dt.strftime("%Y-%m-%d")
     
     if market_type == "fund":
-        # 基金/股票使用交易所日历（包含调休）
-        holidays = get_exchange_holidays(dt.year)
+        # 基金/股票使用上交所日历爬虫
+        holidays, has_calendar = fetch_exchange_holidays_with_status(dt.year)
+        if not holidays and not has_calendar:
+            # 爬虫失败且无缓存时，回退到本地节假日服务避免误判开市
+            holidays = get_holidays(dt.year)
     else:
-        # 黄金使用法定假日日历
-        holidays = get_holidays(dt.year)
+        # 黄金使用上金所（SGE）混合日历
+        holidays = get_exchange_holidays(dt.year)
     
     return date_str in holidays
 

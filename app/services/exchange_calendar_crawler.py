@@ -5,7 +5,6 @@
 """
 
 import re
-import time
 import json
 import os
 import requests
@@ -13,8 +12,7 @@ from datetime import datetime, timedelta
 
 from app.config import (
     EXCHANGE_CALENDAR_URL,
-    EXCHANGE_CALENDAR_FILE,
-    EXCHANGE_CALENDAR_CACHE_DIR
+    EXCHANGE_CALENDAR_FILE
 )
 
 
@@ -23,7 +21,9 @@ class ExchangeCalendarCrawler:
     
     def __init__(self):
         self.url = EXCHANGE_CALENDAR_URL
+        self.base_url = "https://www.sse.com.cn/"
         self.cache_file = EXCHANGE_CALENDAR_FILE
+        self._session = requests.Session()
         self._ensure_cache_dir()
     
     def _ensure_cache_dir(self):
@@ -31,6 +31,17 @@ class ExchangeCalendarCrawler:
         cache_dir = os.path.dirname(self.cache_file)
         if not os.path.exists(cache_dir):
             os.makedirs(cache_dir)
+            
+    def _warm_up(self):
+        """访问首页建立 Session/Cookies"""
+        try:
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            }
+            self._session.get(self.base_url, headers=headers, timeout=5)
+            return True
+        except:
+            return False
     
     def _load_cache(self):
         """从文件加载缓存"""
@@ -58,26 +69,31 @@ class ExchangeCalendarCrawler:
     
     def _fetch_page(self):
         """获取上交所页面内容"""
+        # 预热以获取 cookies
+        self._warm_up()
+        
         try:
             headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
                 "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
                 "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+                "Referer": self.base_url
             }
-            response = requests.get(self.url, headers=headers, timeout=10)
+            response = self._session.get(self.url, headers=headers, timeout=10)
             
-            # 使用 latin1 解码，然后再用正确的编码替换
-            # 这种方法可以处理各种编码的网页
+            # 优先尝试 utf-8，然后尝试 gbk
             content = response.content
-            text = response.text
-            
-            # 检查是否有乱码，如果有尝试修复
             try:
-                # 尝试用 gbk 解码二进制内容
-                text = content.decode('gbk')
-            except:
-                pass
+                text = content.decode('utf-8')
+            except UnicodeDecodeError:
+                try:
+                    text = content.decode('gbk')
+                except UnicodeDecodeError:
+                    text = response.text
             
+            if len(text) < 1000:
+                print(f"[交易所日历] 页面内容异常短 (长度: {len(text)})，可能被拦截")
+                
             return text
             
         except Exception as e:
@@ -89,13 +105,14 @@ class ExchangeCalendarCrawler:
         dates = []
         
         # 匹配格式：X月X日（星期X）至X月X日（星期X）
-        pattern = r'(\d{1,2})月(\d{1,2})日[^\d至]*至[^\d]*(\d{1,2})月(\d{1,2})日'
+        # 兼容“第二段省略月份”：如“2月15日至23日”
+        pattern = r'(\d{1,2})\s*月\s*(\d{1,2})\s*日[^\d]*?(?:至|到|-|—|~)[^\d]*?(?:(\d{1,2})\s*月)?\s*(\d{1,2})\s*日'
         match = re.search(pattern, text)
         
         if match:
             start_month = int(match.group(1))
             start_day = int(match.group(2))
-            end_month = int(match.group(3))
+            end_month = int(match.group(3)) if match.group(3) else start_month
             end_day = int(match.group(4))
             
             try:
@@ -108,13 +125,23 @@ class ExchangeCalendarCrawler:
                     current += timedelta(days=1)
             except Exception as e:
                 print(f"[交易所日历] 日期解析错误: {e}")
+        else:
+            # 尝试匹配单日休市：X月X日休市
+            single_pattern = r'(\d{1,2})\s*月\s*(\d{1,2})\s*日(?:（[^）]+）)?\s*休市'
+            single_match = re.search(single_pattern, text)
+            if single_match:
+                sm, sd = int(single_match.group(1)), int(single_match.group(2))
+                try:
+                    dates.append(datetime(year, sm, sd).strftime("%Y-%m-%d"))
+                except:
+                    pass
         
         return dates
     
     def _find_first_trading_day(self, text, year=2026):
         """从文本中找到首个交易日"""
         # 匹配格式：X月X日（星期X）起照常开市
-        pattern = r'(\d{1,2})月(\d{1,2})日[^\d]*起照常开市'
+        pattern = r'(\d{1,2})\s*月\s*(\d{1,2})\s*日[^\d]*?起(?:照常|恢复)?开市'
         match = re.search(pattern, text)
         
         if match:
@@ -137,61 +164,61 @@ class ExchangeCalendarCrawler:
         # 格式：X月X日（周X）至X月X日（周X）休市，X月X日（周X）起照常开市
         holiday_names = ['元旦', '春节', '清明节', '劳动节', '端午节', '中秋节', '国庆节']
         
-        # 直接在内容中搜索
-        for holiday_name in holiday_names:
-            # 查找包含该节假日名称的行
-            pattern = rf'{holiday_name}：?([^至]+至[^休]+)休市([^开]+)?开市?'
-            match = re.search(pattern, content)
+        try:
+            from bs4 import BeautifulSoup
+            soup = BeautifulSoup(content, 'html.parser')
             
-            if match:
-                date_range_text = match.group(1) + '至' + match.group(2) if match.group(2) else match.group(1)
-                
-                # 解析日期范围
-                dates = self._parse_date_range(date_range_text, year)
-                if dates:
-                    holidays[holiday_name] = dates
-                
-                # 查找首个交易日
-                full_text = match.group(0)
-                first_day = self._find_first_trading_day(full_text, year)
-                if first_day:
-                    first_trading_days[holiday_name] = first_day
-        
-        # 备用方案：直接在整个内容中搜索日期范围模式
-        if not holidays:
-            # 匹配所有类似 "2月15日...至2月23日休市" 的模式
-            pattern = r'(\d{1,2})月(\d{1,2})日[^\d至]*至[^\d]*(\d{1,2})日[^\d]*休市'
-            for match in re.finditer(pattern, content):
-                try:
-                    start_month = int(match.group(1))
-                    start_day = int(match.group(2))
-                    end_month = int(match.group(3))
+            # 找到所有的行
+            for tr in soup.find_all('tr'):
+                cells = tr.find_all('td')
+                if len(cells) >= 2:
+                    td1_text = cells[0].get_text(strip=True)
+                    td2_text = cells[1].get_text(strip=True)
                     
-                    # 简单判断是哪个节日
-                    if start_month == 1:
-                        name = '元旦'
-                    elif start_month == 2 and start_day >= 14:
-                        name = '春节'
-                    elif start_month == 4:
-                        name = '清明节'
-                    elif start_month == 5:
-                        name = '劳动节'
-                    elif start_month == 6:
-                        name = '端午节'
-                    elif start_month == 9:
-                        name = '中秋节'
-                    elif start_month == 10:
-                        name = '国庆节'
-                    else:
+                    for name in holiday_names:
+                        # 兼容部分乱码情况，如果在原始 td 的 html 里能找到名字也可以
+                        if name in td1_text or name in str(cells[0]):
+                            # 找到了休市安排说明单元格 td2_text
+                            # 示例：1月1日（星期四）至1月3日（星期六）休市，1月5日（星期一）起照常开市
+                            
+                            # 解析日期范围
+                            dates = self._parse_date_range(td2_text, year)
+                            if dates:
+                                holidays[name] = dates
+                            
+                            # 查找首个交易日
+                            first_day = self._find_first_trading_day(td2_text, year)
+                            if first_day:
+                                first_trading_days[name] = first_day
+                            break
+                            
+            # 备用方案（如果基于表格解析失败，或者上交所更换了格式，回退到无标签的正文暴搜）
+            if not holidays:
+                clean_text = soup.get_text()
+                pattern = r'(\d{1,2})月(\d{1,2})日[^\d至]*至[^\d]*(?:(\d{1,2})月)?(\d{1,2})日[^\d]*休市'
+                for match in re.finditer(pattern, clean_text):
+                    try:
+                        start_month = int(match.group(1))
+                        start_day = int(match.group(2))
+                        end_month = int(match.group(3)) if match.group(3) else start_month
+                        
+                        if start_month == 1: name = '元旦'
+                        elif start_month == 2 and start_day >= 14: name = '春节'
+                        elif start_month == 4: name = '清明节'
+                        elif start_month == 5: name = '劳动节'
+                        elif start_month == 6: name = '端午节'
+                        elif start_month == 9: name = '中秋节'
+                        elif start_month == 10: name = '国庆节'
+                        else: continue
+                        
+                        if name not in holidays:
+                            dates = self._parse_date_range(match.group(0), year)
+                            if dates:
+                                holidays[name] = dates
+                    except:
                         continue
-                    
-                    if name not in holidays:
-                        # 解析日期
-                        dates = self._parse_date_range(match.group(0), year)
-                        if dates:
-                            holidays[name] = dates
-                except:
-                    continue
+        except Exception as e:
+            print(f"[交易所日历] bs4 解析异常: {e}")
         
         if not holidays:
             print(f"[交易所日历] 未能解析出任何节假日")
@@ -214,11 +241,16 @@ class ExchangeCalendarCrawler:
         if year is None:
             year = datetime.now().year
         
+        # 优先从缓存加载，避免频繁请求导致的挂起或封禁
+        cached = self._load_from_cache(year)
+        if cached:
+            return cached
+            
         # 尝试获取页面
         content = self._fetch_page()
         if not content:
-            print(f"[交易所日历] 爬取失败，使用缓存数据")
-            return self._load_from_cache(year)
+            print(f"[交易所日历] 爬取失败，且无本地缓存")
+            return None
         
         # 解析内容
         result = self.parse_year_from_content(content, year)
@@ -282,7 +314,21 @@ class ExchangeCalendarCrawler:
             return data.get("first_trading_days", {}).get(holiday_name)
         return None
 
-
+    def get_holiday_name_by_date(self, date_str, year=None):
+        """获取指定日期所在的节假日名称"""
+        if year is None:
+            try:
+                year = int(date_str.split('-')[0])
+            except:
+                year = datetime.now().year
+        
+        data = self.crawl_year(year)
+        if data:
+            holidays = data.get("holidays", {})
+            for name, dates in holidays.items():
+                if date_str in dates:
+                    return name
+        return None
 # 全局爬虫实例
 _crawler = None
 
@@ -298,6 +344,39 @@ def get_crawler():
 def fetch_exchange_holidays(year=None):
     """获取交易所休市日期（快捷函数）"""
     return get_crawler().get_holidays(year)
+
+
+def fetch_exchange_holidays_with_status(year=None):
+    """
+    获取交易所休市日期并返回数据可用状态
+
+    返回:
+        tuple(set, bool): (休市日期集合, 是否成功获取到可用日历)
+    """
+    data = get_crawler().crawl_year(year)
+    if data:
+        return set(data.get("all_holiday_dates", [])), True
+    return set(), False
+
+
+def get_holiday_name_by_date(date_str, year=None):
+    """获取指定日期所在的节假日名称（快捷函数）"""
+    return get_crawler().get_holiday_name_by_date(date_str, year)
+
+
+def get_first_trading_day(holiday_name, year=None):
+    """获取指定节假日后的首个交易日（快捷函数）"""
+    return get_crawler().get_first_trading_day(holiday_name, year)
+
+
+def get_exchange_holiday_name_by_date(date_str, year=None):
+    """兼容旧命名：获取指定日期所在的节假日名称"""
+    return get_holiday_name_by_date(date_str, year)
+
+
+def get_exchange_first_trading_day_from_crawler(holiday_name, year=None):
+    """兼容旧命名：获取指定节假日后的首个交易日"""
+    return get_first_trading_day(holiday_name, year)
 
 
 if __name__ == "__main__":

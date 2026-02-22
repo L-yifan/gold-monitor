@@ -83,7 +83,7 @@ HEADERS = {
 }
 
 # ==================== 交易时间配置 ====================
-# 节假日 API 配置（按优先级排序，多API降级）
+# 节假日 API 配置（按优先级排序）
 HOLIDAY_API_URLS = [
     # 百度日历 API（主要）
     ("baidu", "https://sp0.baidu.com/8aQDcjqpAAV3otqbppnN2DJv/api.php?resource_id=6017&query={year}年节假日"),
@@ -105,6 +105,11 @@ EXCHANGE_CALENDAR_URL = "https://www.sse.com.cn/disclosure/dealinstruc/closed/" 
 EXCHANGE_CALENDAR_FILE = os.path.join(DATA_DIR, "exchange_calendar.json")  # 缓存文件
 EXCHANGE_CALENDAR_CACHE_DIR = DATA_DIR  # 缓存目录
 EXCHANGE_CALENDAR_UPDATE_DAY = 1  # 每月1日自动更新
+
+# ==================== 黄金交易所休市安排配置 ====================
+SGE_HOLIDAY_URL = "https://www.sge.com.cn/xwzx/ssjg?p=1&focus=%25E4%25BC%2591%25E5%25B8%2582"
+SGE_HOLIDAY_CACHE_FILE = os.path.join(DATA_DIR, "sge_holidays.json")
+SGE_HOLIDAY_CACHE_TTL = 30 * 24 * 3600  # 30天缓存
  
 # 采集频率配置
 FETCH_INTERVAL_TRADING = 5       # 交易时间内采集间隔（秒）

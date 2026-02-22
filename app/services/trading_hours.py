@@ -99,6 +99,10 @@ def get_trading_status(dt=None):
     current_time = dt.time()
     weekday = get_weekday(dt)
     holiday = is_holiday(dt, "gold")
+    holiday_name = None
+    if holiday:
+        from app.services.exchange_calendar import get_holiday_name_by_date as get_gold_holiday_name_by_date
+        holiday_name = get_gold_holiday_name_by_date(dt.strftime("%Y-%m-%d"))
     
     result = {
         "is_trading_time": False,
@@ -108,12 +112,13 @@ def get_trading_status(dt=None):
         "next_event_time": None,
         "time_until_next": None,
         "is_holiday": holiday,
+        "holiday_name": holiday_name,
         "weekday": weekday
     }
     
     # 如果不是交易日，计算下次开盘时间
-    if not is_trading_day(dt):
-        next_trading_day = _find_next_trading_day(dt)
+    if not is_trading_day(dt, "gold"):
+        next_trading_day = _find_next_trading_day(dt, "gold")
         day_open = datetime.combine(next_trading_day, datetime.strptime("09:00", "%H:%M").time())
         
         result["next_event"] = "day_open"
@@ -180,8 +185,8 @@ def get_trading_status(dt=None):
         # 检查昨天是否是周一至周四（有夜市）
         yesterday = dt.date() - timedelta(days=1)
         yesterday_weekday = yesterday.weekday()
-        
-        if yesterday_weekday < 4 and not is_holiday(yesterday):
+
+        if yesterday_weekday < 4 and not is_holiday(yesterday, "gold"):
             result["is_trading_time"] = True
             result["trading_phase"] = "night_session"
             result["phase_name"] = "夜间交易"
@@ -212,6 +217,10 @@ def get_fund_trading_status(dt=None):
     current_time = dt.time()
     weekday = get_weekday(dt)
     holiday = is_holiday(dt, "fund")
+    holiday_name = None
+    if holiday:
+        from app.services.exchange_calendar_crawler import get_holiday_name_by_date as get_fund_holiday_name_by_date
+        holiday_name = get_fund_holiday_name_by_date(dt.strftime("%Y-%m-%d"))
     
     result = {
         "is_trading_time": False,
@@ -221,6 +230,7 @@ def get_fund_trading_status(dt=None):
         "next_event_time": None,
         "time_until_next": None,
         "is_holiday": holiday,
+        "holiday_name": holiday_name,
         "weekday": weekday
     }
     
@@ -232,7 +242,7 @@ def get_fund_trading_status(dt=None):
     
     # 如果不是交易日，计算下次开盘时间
     if not is_trading_day(dt, "fund"):
-        next_trading_day = _find_next_trading_day(dt)
+        next_trading_day = _find_next_trading_day(dt, "fund")
         day_open = datetime.combine(next_trading_day, t930)
         
         result["next_event"] = "market_open"
@@ -266,7 +276,7 @@ def get_fund_trading_status(dt=None):
         next_event_time = datetime.combine(dt.date(), t1300)
         result["next_event"] = "market_resume"
     else:
-        next_trading_day = _find_next_trading_day(dt)
+        next_trading_day = _find_next_trading_day(dt, "fund")
         next_event_time = datetime.combine(next_trading_day, t930)
         result["next_event"] = "market_open"
         
@@ -301,7 +311,7 @@ def _calculate_next_event(dt, result):
             result["time_until_next"] = int((next_time - dt).total_seconds())
         else:
             # 周五没有夜市，等下周一
-            next_trading_day = _find_next_trading_day(dt)
+            next_trading_day = _find_next_trading_day(dt, "gold")
             result["next_event"] = "day_open"
             next_time = datetime.combine(next_trading_day, datetime.strptime("09:00", "%H:%M").time())
             result["next_event_time"] = next_time
@@ -318,7 +328,7 @@ def _calculate_next_event(dt, result):
         return result
     
     # 默认情况下找下一个交易日
-    next_trading_day = _find_next_trading_day(dt)
+    next_trading_day = _find_next_trading_day(dt, "gold")
     result["next_event"] = "day_open"
     next_time = datetime.combine(next_trading_day, datetime.strptime("09:00", "%H:%M").time())
     result["next_event_time"] = next_time
@@ -327,22 +337,54 @@ def _calculate_next_event(dt, result):
     return result
 
 
-def _find_next_trading_day(start_dt):
+def _find_next_trading_day(start_dt, market_type="fund"):
     """
     查找下一个交易日
     
     参数:
         start_dt: 开始日期时间
+        market_type: "fund" (基金) 或 "gold" (黄金)
         
     返回:
         date: 下一个交易日的日期
     """
+    date_str = start_dt.strftime("%Y-%m-%d")
+    
+    # 尝试直接获取节后首个交易日
+    if market_type == "fund":
+        from app.services.exchange_calendar_crawler import (
+            get_holiday_name_by_date as get_fund_holiday_name_by_date,
+            get_first_trading_day as get_fund_first_trading_day
+        )
+        holiday_name = get_fund_holiday_name_by_date(date_str)
+        if holiday_name:
+            first_day_str = get_fund_first_trading_day(holiday_name, start_dt.year)
+            if first_day_str:
+                try:
+                    candidate_date = datetime.strptime(first_day_str, "%Y-%m-%d").date()
+                    if candidate_date > start_dt.date():
+                        return candidate_date
+                except Exception:
+                    pass
+    else:
+        from app.services.exchange_calendar import get_holiday_name_by_date, get_exchange_first_trading_day
+        holiday_name = get_holiday_name_by_date(date_str)
+        if holiday_name:
+            first_day_str = get_exchange_first_trading_day(holiday_name, start_dt.year)
+            if first_day_str:
+                try:
+                    candidate_date = datetime.strptime(first_day_str, "%Y-%m-%d").date()
+                    if candidate_date > start_dt.date():
+                        return candidate_date
+                except Exception:
+                    pass
+                
     current_date = start_dt.date() + timedelta(days=1)
     
     # 最多查找 30 天
     for _ in range(30):
         dt_check = datetime.combine(current_date, datetime.min.time())
-        if is_trading_day(dt_check):
+        if is_trading_day(dt_check, market_type):
             return current_date
         current_date += timedelta(days=1)
     

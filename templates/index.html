@@ -165,9 +165,10 @@
                                 <span class="w-px h-2.5 transition-colors duration-300"
                                     style="background-color: var(--theme-border-default);"></span>
                                 <span class="font-mono text-[var(--theme-text-secondary)]">
-                                    <template v-if="tradingStatus.is_holiday && getHolidayName()">{{ getHolidayName() }}
-                                        . {{ formatCountdown(tradingStatus.time_until_next,
-                                        tradingStatus.next_event_time) }}开</template>
+                                    <template v-if="tradingStatus.is_holiday && tradingStatus.holiday_name">{{
+                                        tradingStatus.holiday_name }}
+                                        · {{ formatCountdown(tradingStatus.time_until_next,
+                                        tradingStatus.next_event_time) }}后开</template>
                                     <template v-else>{{ formatCountdown(tradingStatus.time_until_next,
                                         tradingStatus.next_event_time) }}{{ tradingStatus.next_event_name }}</template>
                                 </span>
@@ -194,9 +195,10 @@
                                 <span class="w-px h-2.5 transition-colors duration-300"
                                     style="background-color: var(--theme-border-default);"></span>
                                 <span class="font-mono text-[var(--theme-text-secondary)]">
-                                    <template v-if="fundTradingStatus.is_holiday && getHolidayName()">{{
-                                        getHolidayName() }} . {{ formatCountdown(fundTradingStatus.time_until_next,
-                                        fundTradingStatus.next_event_time) }}开</template>
+                                    <template v-if="fundTradingStatus.is_holiday && fundTradingStatus.holiday_name">{{
+                                        fundTradingStatus.holiday_name }} · {{
+                                        formatCountdown(fundTradingStatus.time_until_next,
+                                        fundTradingStatus.next_event_time) }}后开</template>
                                     <template v-else>{{ formatCountdown(fundTradingStatus.time_until_next,
                                         fundTradingStatus.next_event_time) }}{{ fundTradingStatus.next_event_name
                                         }}</template>

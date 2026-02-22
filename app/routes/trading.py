@@ -47,6 +47,7 @@ def _format_status(status):
         "next_event_time": next_event_time_str,
         "time_until_next": status["time_until_next"],
         "is_holiday": status["is_holiday"],
+        "holiday_name": status.get("holiday_name"),
         "weekday": status["weekday"],
         "weekday_name": weekday_names[status["weekday"]]
     }
